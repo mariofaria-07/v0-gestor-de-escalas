@@ -1,9 +1,5 @@
-import { GestorEscalas } from "@/components/escala/gestor-escalas"
+import { EscalaPublica } from "@/components/escala/escala-publica"
 
 export default function Home() {
-  return (
-    <main>
-      <GestorEscalas />
-    </main>
-  )
+  return <EscalaPublica />
 }
