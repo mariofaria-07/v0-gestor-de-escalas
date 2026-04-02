@@ -39,50 +39,54 @@ export function parseCSVToEscala(text: string): EscalaData {
   const newEscala: EscalaData = {}
   let currentDateStr: string | null = null
 
+  // Detect delimiter: semicolon or comma
+  const firstDataLine = lines.find(l => l.trim() && !l.toLowerCase().includes('data;') && !l.toLowerCase().includes('data,'))
+  const delimiter = text.includes(';') ? ';' : ','
+
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim().replace(/"/g, '')
     if (!line) continue
-    const cols = line.split(',')
+    
+    const cols = line.split(delimiter)
 
-    let foundDate: string | null = null
-    for (const col of cols) {
-      const normalized = normalizeDate(col)
-      if (normalized) {
-        foundDate = normalized
-        break
-      }
-    }
+    // Check if first column has a date
+    const firstCol = cols[0]?.trim() || ''
+    const foundDate = normalizeDate(firstCol)
 
     if (foundDate) {
+      // New date found - this is the start of a new day's entries
       currentDateStr = foundDate
       if (!newEscala[currentDateStr]) newEscala[currentDateStr] = []
 
-      const nonEmptyCols = cols.filter(
-        (c) =>
-          c.trim().length > 0 &&
-          !normalizeDate(c) &&
-          !c.toLowerCase().includes('feira')
-      )
-      if (nonEmptyCols.length > 0) {
-        const possibleName = nonEmptyCols[nonEmptyCols.length - 1]
-        if (
-          possibleName &&
-          !['COLABORADORES', 'DIA', 'DATA'].includes(possibleName.toUpperCase())
+      // Get the collaborator name from the third column (index 2)
+      const collaboratorName = cols[2]?.trim() || ''
+      
+      if (collaboratorName && 
+          !['COLABORADORES', 'DIA', 'DATA'].includes(collaboratorName.toUpperCase())) {
+        // Check for holidays or special days
+        if (collaboratorName.toLowerCase().includes('feriado')) {
+          newEscala[currentDateStr] = [collaboratorName]
+        } else if (
+          !collaboratorName.toUpperCase().includes('NÃO TEVE ESCALA') &&
+          !collaboratorName.toUpperCase().includes('SEM ESCALA')
         ) {
-          newEscala[currentDateStr].push(cleanName(possibleName))
+          newEscala[currentDateStr].push(cleanName(collaboratorName))
+        } else {
+          newEscala[currentDateStr] = ['SEM ESCALA / NÃO HOUVE']
         }
       }
     } else if (currentDateStr) {
-      const nonEmptyCols = cols.filter((c) => c.trim().length > 0)
-      if (nonEmptyCols.length > 0) {
-        const possibleName = nonEmptyCols[nonEmptyCols.length - 1]
+      // No date in first column - continuation of previous date's entries
+      // The collaborator name is in the third column (index 2)
+      const collaboratorName = cols[2]?.trim() || cols[0]?.trim() || ''
+      
+      if (collaboratorName) {
         if (
-          !possibleName.toUpperCase().includes('NÃO TEVE ESCALA') &&
-          !possibleName.toUpperCase().includes('SEM ESCALA')
+          !collaboratorName.toUpperCase().includes('NÃO TEVE ESCALA') &&
+          !collaboratorName.toUpperCase().includes('SEM ESCALA') &&
+          !collaboratorName.toLowerCase().includes('feriado')
         ) {
-          newEscala[currentDateStr].push(cleanName(possibleName))
-        } else {
-          newEscala[currentDateStr] = ['SEM ESCALA / NÃO HOUVE']
+          newEscala[currentDateStr].push(cleanName(collaboratorName))
         }
       }
     }
@@ -100,17 +104,22 @@ export function generateWhatsAppMessage(
   }
 
   if (people[0] === 'SEM ESCALA / NÃO HOUVE') {
-    return `📅 *Escala Rio Acima - ${date}*\n\nNÃO HAVERÁ ESCALA NESTE DIA.`
+    return `*Escala Rio Acima - ${date}*\n\nNAO HAVERA ESCALA NESTE DIA.`
   }
 
-  let msg = `📅 *Escala Rio Acima - ${date}*\n🚐 *Atenção Motorista e Colaboradores*\n\n👥 *Passageiros do dia:*\n`
+  // Check if it's a holiday
+  if (people.length === 1 && people[0].toLowerCase().includes('feriado')) {
+    return `*Escala Rio Acima - ${date}*\n\n${people[0].toUpperCase()}\n\nNAO HAVERA ESCALA NESTE DIA.`
+  }
+
+  let msg = `*Escala Rio Acima - ${date}*\n*Atencao Motorista e Colaboradores*\n\n*Passageiros do dia:*\n`
 
   people.forEach((pessoa) => {
     const nomeFormatado = formatNameCapitalized(pessoa)
-    msg += `▪️ ${nomeFormatado}\n`
+    msg += `- ${nomeFormatado}\n`
   })
 
-  msg += `\n⏰ Por favor, estejam nos pontos de embarque no horário combinado.`
+  msg += `\nPor favor, estejam nos pontos de embarque no horario combinado.`
 
   return msg
 }
