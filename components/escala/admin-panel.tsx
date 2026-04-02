@@ -26,7 +26,10 @@ import {
   Trash2,
   Send,
   RefreshCw,
+  Home,
+  Bus,
 } from "lucide-react"
+import Link from "next/link"
 
 interface AdminPanelProps {
   onLogout: () => void
@@ -164,28 +167,46 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   })
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-10">
+      <header className="bg-primary text-primary-foreground sticky top-0 z-10 shadow-md">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">Painel Admin - Escalas</h1>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-lg">
+              <Bus className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold">Painel Admin</h1>
+              <p className="text-xs text-primary-foreground/70">Gestor de Escalas Rio Acima</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/">
+              <Button variant="secondary" size="sm" className="bg-white/20 hover:bg-white/30 text-primary-foreground border-0">
+                <Home className="h-4 w-4 mr-2" />
+                Ver Escala
+              </Button>
+            </Link>
+            <Button variant="secondary" size="sm" onClick={handleLogout} className="bg-white/10 hover:bg-white/20 text-primary-foreground border-0">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Upload e Refresh */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Upload className="h-5 w-5" />
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-accent/10 to-transparent border-b border-border">
+            <CardTitle className="text-lg flex items-center gap-3">
+              <div className="p-2 bg-accent/20 rounded-lg">
+                <Upload className="h-5 w-5 text-accent" />
+              </div>
               Importar Escala
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="flex gap-4 flex-wrap">
               <label className="flex-1 min-w-[200px]">
                 <input
@@ -225,14 +246,17 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
         </Card>
 
         {/* Lista de Escalas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Escalas ({escalasFiltradas.length})
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-border">
+            <CardTitle className="text-lg flex items-center gap-3">
+              <div className="p-2 bg-primary/20 rounded-lg">
+                <Calendar className="h-5 w-5 text-primary" />
+              </div>
+              Escalas
+              <Badge variant="secondary" className="ml-auto">{escalasFiltradas.length} dias</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Spinner className="h-6 w-6 text-primary" />

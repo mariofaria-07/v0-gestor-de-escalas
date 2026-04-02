@@ -16,26 +16,28 @@ export function EscalaCard({ escala, dataFormatada, diaSemana }: EscalaCardProps
   const isFeriado = escala?.feriado
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-lg border-0 overflow-hidden">
-      {/* Header com cor de destaque */}
-      <CardHeader className="bg-primary text-primary-foreground pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-lg">
-            <Bus className="h-6 w-6" />
+    <Card className="w-full max-w-md mx-auto shadow-2xl border-0 overflow-hidden">
+      {/* Header com gradiente */}
+      <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-6 pt-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white/20 rounded-xl shadow-lg">
+            <Bus className="h-7 w-7" />
           </div>
           <div>
-            <CardTitle className="text-lg font-bold">Escala Rio Acima</CardTitle>
-            <p className="text-sm text-primary-foreground/80">Transporte de Colaboradores</p>
+            <CardTitle className="text-xl font-bold tracking-tight">Escala Rio Acima</CardTitle>
+            <p className="text-sm text-primary-foreground/80 mt-0.5">Transporte de Colaboradores</p>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-6 pb-6">
+      <CardContent className="pt-6 pb-8 px-6">
         {/* Data */}
-        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border">
-          <Calendar className="h-5 w-5 text-muted-foreground" />
+        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Calendar className="h-5 w-5 text-primary" />
+          </div>
           <div>
-            <p className="font-semibold text-foreground">{dataFormatada}</p>
+            <p className="font-bold text-lg text-foreground">{dataFormatada}</p>
             <p className="text-sm text-muted-foreground capitalize">{diaSemana}</p>
           </div>
         </div>
@@ -51,33 +53,37 @@ export function EscalaCard({ escala, dataFormatada, diaSemana }: EscalaCardProps
           </div>
         ) : hasEscala ? (
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <span className="font-medium text-foreground">Passageiros do dia</span>
-              <Badge variant="secondary" className="ml-auto">
-                {escala.colaboradores.length}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 bg-accent/10 rounded-lg">
+                <Users className="h-5 w-5 text-accent" />
+              </div>
+              <span className="font-semibold text-foreground">Passageiros do dia</span>
+              <Badge className="ml-auto bg-accent text-accent-foreground shadow-sm">
+                {escala.colaboradores.length} pessoas
               </Badge>
             </div>
             
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {escala.colaboradores.map((colaborador, index) => (
                 <li
                   key={index}
-                  className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg"
+                  className="flex items-center gap-4 p-4 bg-gradient-to-r from-secondary/80 to-secondary/40 rounded-xl border border-border/50 shadow-sm"
                 >
-                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-primary">
+                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-md">
+                    <span className="text-sm font-bold text-primary-foreground">
                       {colaborador.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-foreground">{colaborador}</span>
+                  <span className="text-foreground font-medium">{colaborador}</span>
                 </li>
               ))}
             </ul>
 
-            <p className="mt-6 text-sm text-muted-foreground text-center border-t border-border pt-4">
-              Por favor, estejam nos pontos de embarque no horario combinado.
-            </p>
+            <div className="mt-6 pt-5 border-t border-border">
+              <p className="text-sm text-muted-foreground text-center">
+                Por favor, estejam nos pontos de embarque no horario combinado.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="text-center py-6">
