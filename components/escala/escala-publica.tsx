@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { EscalaCard } from "./escala-card"
 import { getEscalaHoje } from "@/lib/firebase-service"
 import type { EscalaDia } from "@/lib/firebase-types"
 import { Spinner } from "@/components/ui/spinner"
+import { Settings } from "lucide-react"
 
 function getDiaSemana(date: Date): string {
   const dias = [
@@ -58,7 +60,16 @@ export function EscalaPublica() {
   }
 
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center p-4">
+    <main className="min-h-screen bg-background flex items-center justify-center p-4 relative">
+      {/* Link discreto para admin */}
+      <Link 
+        href="/admin" 
+        className="absolute top-4 right-4 p-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+        title="Painel Admin"
+      >
+        <Settings className="h-5 w-5" />
+      </Link>
+      
       <EscalaCard
         escala={escala}
         dataFormatada={formatDate(dataAtual)}
