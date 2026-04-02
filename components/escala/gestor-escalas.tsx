@@ -15,7 +15,7 @@ const STORAGE_KEY = "escalaDataSalva"
 
 export function GestorEscalas() {
   const [escalaData, setEscalaData] = useState<EscalaData>({})
-  const [selectedDate, setSelectedDate] = useState("")
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [telefoneMotorista, setTelefoneMotorista] = useState("31993410980")
   const [showUpload, setShowUpload] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
@@ -44,12 +44,12 @@ export function GestorEscalas() {
   }, [hasData, isLoaded])
 
   const pessoasHoje = useMemo(
-    () => escalaData[selectedDate] || [],
+    () => (selectedDate ? escalaData[selectedDate] || [] : []),
     [escalaData, selectedDate]
   )
 
   const mensagemFormatada = useMemo(
-    () => generateWhatsAppMessage(selectedDate, pessoasHoje),
+    () => (selectedDate ? generateWhatsAppMessage(selectedDate, pessoasHoje) : ""),
     [selectedDate, pessoasHoje]
   )
 
@@ -86,7 +86,7 @@ export function GestorEscalas() {
         <Header />
 
         <Filters
-          selectedDate={selectedDate}
+          selectedDate={selectedDate || ""}
           onDateChange={setSelectedDate}
           telefoneMotorista={telefoneMotorista}
           onTelefoneChange={setTelefoneMotorista}
@@ -99,7 +99,7 @@ export function GestorEscalas() {
             message={mensagemFormatada}
             peopleCount={pessoasHoje.length}
             hasPeople={pessoasHoje.length > 0}
-            selectedDate={selectedDate}
+            selectedDate={selectedDate || ""}
             telefoneMotorista={telefoneMotorista}
           />
         )}
