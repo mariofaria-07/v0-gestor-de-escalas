@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { EscalaCard } from "./escala-card"
-import { getEscalaDia, getEscalaHoje, getTodasEscalas } from "@/lib/firebase-service"
+import { getEscalaDia, getEscalaHoje, getTodasEscalas, getTodosColaboradoresNomes, salvarReporte } from "@/lib/firebase-service"
 import type { EscalaDia } from "@/lib/firebase-types"
 import { Spinner } from "@/components/ui/spinner"
-import { Settings, Calendar as CalendarIcon, List, Search } from "lucide-react"
+import { Settings, Calendar as CalendarIcon, List, Search, AlertTriangle, MessageSquare } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { ptBR } from "date-fns/locale"
 
 function getDiaSemana(date: Date): string {
@@ -37,10 +39,17 @@ export function EscalaPublica() {
   const [loadingSelecionada, setLoadingSelecionada] = useState(false)
   const [dataAtual, setDataAtual] = useState<Date | null>(null)
   const [dataSelecionada, setDataSelecionada] = useState<Date | undefined>(new Date())
+  const [allColaboradores, setAllColaboradores] = useState<string[]>([])
   
   const [searchTerm, setSearchTerm] = useState("")
   const [searchResults, setSearchResults] = useState<EscalaDia[]>([])
   const [isSearching, setIsSearching] = useState(false)
+
+  // Reporte State
+  const [isReportOpen, setIsReportOpen] = useState(false)
+  const [reporteTipo, setReporteTipo] = useState<'perigo' | 'alerta' | 'sugestao'>('alerta')
+  const [reporteMensagem, setReporteMensagem] = useState("")
+  const [isReporting, setIsReporting] = useState(false)
 
   const refreshData = async () => {
     if (dataSelecionada) {
@@ -50,25 +59,33 @@ export function EscalaPublica() {
     }
     const hojeEscala = await getEscalaHoje()
     setEscalaHoje(hojeEscala)
+    
+    // Refresh colaboradores names list
+    const nomes = await getTodosColaboradoresNomes()
+    setAllColaboradores(nomes)
   }
 
   useEffect(() => {
     const hoje = new Date()
     setDataAtual(hoje)
     
-    async function carregarEscala() {
+    async function carregarDados() {
       try {
-        const escala = await getEscalaHoje()
+        const [escala, nomes] = await Promise.all([
+          getEscalaHoje(),
+          getTodosColaboradoresNomes()
+        ])
         setEscalaHoje(escala)
         setEscalaSelecionada(escala)
+        setAllColaboradores(nomes)
       } catch (error) {
-        console.error("Erro ao carregar escala:", error)
+        console.error("Erro ao carregar dados:", error)
       } finally {
         setLoading(false)
       }
     }
     
-    carregarEscala()
+    carregarDados()
   }, [])
 
   useEffect(() => {
@@ -107,6 +124,28 @@ export function EscalaPublica() {
       console.error(error)
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  const handleEnviarReporte = async () => {
+    if (!reporteMensagem.trim()) return
+    setIsReporting(true)
+    try {
+      await salvarReporte({
+        tipo: reporteTipo,
+        mensagem: reporteMensagem,
+        data: new Date().toISOString(),
+        lido: false
+      })
+      setIsReportOpen(false)
+      setReporteMensagem("")
+      setReporteTipo('alerta')
+      alert("Reporte enviado com sucesso! O administrador foi notificado.")
+    } catch (error) {
+      console.error(error)
+      alert("Erro ao enviar reporte.")
+    } finally {
+      setIsReporting(false)
     }
   }
 
@@ -153,6 +192,7 @@ export function EscalaPublica() {
               dataFormatada={formatDate(dataAtual)}
               diaSemana={getDiaSemana(dataAtual)}
               onUpdate={refreshData}
+              allColaboradores={allColaboradores}
             />
           </TabsContent>
           
@@ -215,11 +255,75 @@ export function EscalaPublica() {
                   dataFormatada={formatDate(dataSelecionada)}
                   diaSemana={getDiaSemana(dataSelecionada)}
                   onUpdate={refreshData}
+                  allColaboradores={allColaboradores}
                 />
               ) : null}
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Reportar Button */}
+        <div className="mt-8 flex justify-center">
+          <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-900 dark:text-amber-500 dark:hover:bg-amber-950">
+                <AlertTriangle className="h-4 w-4" />
+                Reportar Perigo / Sugestão
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Reportar Situação</DialogTitle>
+                <DialogDescription>
+                  Use este espaço para reportar perigos na rota, enviar alertas ou fazer sugestões. Apenas o administrador verá isso.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-4">
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant={reporteTipo === 'perigo' ? 'destructive' : 'outline'} 
+                    onClick={() => setReporteTipo('perigo')}
+                    className="flex-1"
+                  >
+                    Perigo
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant={reporteTipo === 'alerta' ? 'default' : 'outline'} 
+                    onClick={() => setReporteTipo('alerta')}
+                    className={reporteTipo === 'alerta' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'flex-1'}
+                    style={reporteTipo === 'alerta' ? {} : { flex: 1 }}
+                  >
+                    Alerta
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant={reporteTipo === 'sugestao' ? 'default' : 'outline'} 
+                    onClick={() => setReporteTipo('sugestao')}
+                    className={reporteTipo === 'sugestao' ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'flex-1'}
+                    style={reporteTipo === 'sugestao' ? {} : { flex: 1 }}
+                  >
+                    Sugestão
+                  </Button>
+                </div>
+                <Textarea 
+                  placeholder="Descreva a situação aqui..." 
+                  value={reporteMensagem}
+                  onChange={e => setReporteMensagem(e.target.value)}
+                  className="min-h-[100px]"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsReportOpen(false)} disabled={isReporting}>Cancelar</Button>
+                <Button onClick={handleEnviarReporte} disabled={!reporteMensagem.trim() || isReporting}>
+                  {isReporting ? <Spinner className="h-4 w-4 mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+                  Enviar Reporte
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       
       {/* Footer discreto */}

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { EscalaDia, SolicitacaoAlteracao } from "@/lib/firebase-types"
-import { Bus, Users, Calendar, AlertTriangle, MoreVertical, MapPin, UserMinus, UserPlus, Check, X } from "lucide-react"
+import { Bus, Users, Calendar, AlertTriangle, MoreVertical, MapPin, UserMinus, UserPlus, Check, X, Plus } from "lucide-react"
 import { atualizarLocal, adicionarSolicitacao, processarSolicitacao } from "@/lib/firebase-service"
 
 interface EscalaCardProps {
@@ -15,15 +15,71 @@ interface EscalaCardProps {
   dataFormatada: string
   diaSemana: string
   onUpdate?: () => void
+  allColaboradores?: string[]
 }
 
-export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate }: EscalaCardProps) {
+function AutocompleteInput({ 
+  value, 
+  onChange, 
+  options, 
+  placeholder 
+}: { 
+  value: string, 
+  onChange: (val: string) => void, 
+  options: string[], 
+  placeholder: string 
+}) {
+  const [show, setShow] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShow(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const filtered = options.filter(o => o.toLowerCase().includes(value.toLowerCase()) && o !== value)
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <Input 
+        placeholder={placeholder} 
+        value={value} 
+        onChange={e => { onChange(e.target.value); setShow(true); }}
+        onFocus={() => setShow(true)}
+        className="h-8 text-sm"
+      />
+      {show && filtered.length > 0 && (
+        <ul className="absolute z-10 w-full bg-background border border-border rounded-md shadow-md max-h-40 overflow-auto mt-1">
+          {filtered.map(opt => (
+            <li 
+              key={opt} 
+              className="px-3 py-2 text-sm hover:bg-secondary cursor-pointer" 
+              onClick={() => { onChange(opt); setShow(false); }}
+            >
+              {opt}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allColaboradores = [] }: EscalaCardProps) {
   const [actionState, setActionState] = useState<Record<string, 'local' | 'excluir' | 'substituir' | null>>({})
   const [localInput, setLocalInput] = useState("")
   const [substitutoInput, setSubstitutoInput] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  const [isAdding, setIsAdding] = useState(false)
+  const [novoColaboradorInput, setNovoColaboradorInput] = useState("")
 
   const hasEscala = escala && escala.colaboradores.length > 0
   const isFeriado = escala?.feriado
@@ -62,6 +118,25 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate }: Escal
     const success = await adicionarSolicitacao(escala.data, solicitacao)
     if (success && onUpdate) onUpdate()
     toggleAction(colaborador, null)
+    setIsProcessing(false)
+  }
+
+  const handleAdicionarPessoa = async () => {
+    if (!escala || !novoColaboradorInput.trim()) return
+    
+    setIsProcessing(true)
+    const solicitacao: SolicitacaoAlteracao = {
+      id: Math.random().toString(36).substring(2, 9),
+      tipo: 'adicao',
+      colaboradorNovo: novoColaboradorInput.trim(),
+      status: 'pendente',
+      dataSolicitacao: new Date().toISOString()
+    }
+    
+    const success = await adicionarSolicitacao(escala.data, solicitacao)
+    if (success && onUpdate) onUpdate()
+    setIsAdding(false)
+    setNovoColaboradorInput("")
     setIsProcessing(false)
   }
 
@@ -227,11 +302,11 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate }: Escal
                       <div className="mt-4 pt-3 border-t border-border/50 flex flex-col gap-2">
                         <p className="text-sm font-medium">Quem vai no seu lugar?</p>
                         <div className="flex gap-2">
-                          <Input 
+                          <AutocompleteInput 
                             placeholder="Nome do substituto" 
                             value={substitutoInput} 
-                            onChange={e => setSubstitutoInput(e.target.value)}
-                            className="h-8 text-sm"
+                            onChange={setSubstitutoInput}
+                            options={allColaboradores}
                           />
                           <Button size="sm" onClick={() => handleSolicitacao(colaborador, 'substituicao')} disabled={!substitutoInput.trim() || isProcessing}>
                             Solicitar
@@ -247,6 +322,39 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate }: Escal
               })}
             </ul>
 
+            {/* Add New Person Section */}
+            <div className="mt-4">
+              {isAdding ? (
+                <div className="p-4 bg-secondary/30 rounded-xl border border-border/50 shadow-sm flex flex-col gap-3">
+                  <p className="text-sm font-medium">Adicionar nova pessoa (esporádico)</p>
+                  <div className="flex gap-2">
+                    <AutocompleteInput 
+                      placeholder="Nome da pessoa" 
+                      value={novoColaboradorInput} 
+                      onChange={setNovoColaboradorInput}
+                      options={allColaboradores}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button size="sm" variant="outline" onClick={() => { setIsAdding(false); setNovoColaboradorInput(""); }} disabled={isProcessing}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={handleAdicionarPessoa} disabled={!novoColaboradorInput.trim() || isProcessing}>
+                      Solicitar Adição
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full border-dashed border-2 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsAdding(true)}
+                >
+                  <Plus className="h-4 w-4" /> Adicionar pessoa na rota hoje
+                </Button>
+              )}
+            </div>
+
             {/* Pending Solicitacoes Admin Approval Section */}
             {solicitacoesPendentes.length > 0 && (
               <div className="mt-6 pt-5 border-t border-border">
@@ -258,8 +366,12 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate }: Escal
                   {solicitacoesPendentes.map(sol => (
                     <li key={sol.id} className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/50 text-sm">
                       <div className="mb-2">
-                        <span className="font-medium">{sol.colaboradorOriginal}</span>
-                        {sol.tipo === 'exclusao' ? ' solicitou exclusão.' : ` solicitou substituição por ${sol.colaboradorNovo}.`}
+                        <span className="font-medium">
+                          {sol.tipo === 'adicao' ? sol.colaboradorNovo : sol.colaboradorOriginal}
+                        </span>
+                        {sol.tipo === 'exclusao' && ' solicitou exclusão.'}
+                        {sol.tipo === 'substituicao' && ` solicitou substituição por ${sol.colaboradorNovo}.`}
+                        {sol.tipo === 'adicao' && ' solicitou adição esporádica.'}
                       </div>
                       
                       {approvingId === sol.id ? (

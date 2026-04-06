@@ -6,15 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   getTodasEscalas,
   salvarEscala,
   atualizarColaboradores,
   importarEscalas,
   marcarComoEnviada,
+  getReportes,
+  marcarReporteLido,
 } from "@/lib/firebase-service"
 import { parseCSVToEscala } from "@/lib/escala-utils"
-import type { EscalaDia } from "@/lib/firebase-types"
+import type { EscalaDia, Reporte } from "@/lib/firebase-types"
 import {
   LogOut,
   Upload,
@@ -28,6 +31,9 @@ import {
   RefreshCw,
   Home,
   Bus,
+  AlertTriangle,
+  MessageSquare,
+  CheckCircle2,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -45,6 +51,8 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   const [isLocalDiferente, setIsLocalDiferente] = useState(false)
   const [novoLocal, setNovoLocal] = useState("")
   const [uploading, setUploading] = useState(false)
+  const [reportes, setReportes] = useState<Reporte[]>([])
+  const [loadingReportes, setLoadingReportes] = useState(false)
 
   const carregarEscalas = useCallback(async () => {
     setLoading(true)
@@ -60,7 +68,27 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
 
   useEffect(() => {
     carregarEscalas()
+    carregarReportes()
   }, [carregarEscalas])
+
+  async function carregarReportes() {
+    setLoadingReportes(true)
+    try {
+      const data = await getReportes()
+      setReportes(data)
+    } catch (error) {
+      console.error("Erro ao carregar reportes:", error)
+    } finally {
+      setLoadingReportes(false)
+    }
+  }
+
+  async function handleMarcarLido(id: string) {
+    const success = await marcarReporteLido(id)
+    if (success) {
+      setReportes(reportes.map(r => r.id === id ? { ...r, lido: true } : r))
+    }
+  }
 
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" })
@@ -187,6 +215,8 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
     return escalaDate >= hoje
   })
 
+  const reportesNaoLidos = reportes.filter(r => !r.lido).length
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30">
       {/* Header */}
@@ -217,8 +247,22 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        {/* Upload e Refresh */}
-        <Card className="border-0 shadow-lg">
+        <Tabs defaultValue="escala" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="escala">Gerenciar Escalas</TabsTrigger>
+            <TabsTrigger value="reportes" className="relative">
+              Reportes
+              {reportesNaoLidos > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                  {reportesNaoLidos}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="escala" className="space-y-6">
+            {/* Upload e Refresh */}
+            <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-accent/10 to-transparent border-b border-border">
             <CardTitle className="text-lg flex items-center gap-3">
               <div className="p-2 bg-accent/20 rounded-lg">
@@ -428,6 +472,69 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="reportes">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-amber-500/10 to-transparent border-b border-border">
+                <CardTitle className="text-lg flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/20 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  </div>
+                  Reportes dos Colaboradores
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {loadingReportes ? (
+                  <div className="flex justify-center py-12">
+                    <Spinner className="h-8 w-8 text-primary" />
+                  </div>
+                ) : reportes.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nenhum reporte recebido.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {reportes.map(reporte => (
+                      <div 
+                        key={reporte.id} 
+                        className={`p-4 rounded-lg border ${
+                          reporte.lido ? 'bg-muted/30 border-border' : 
+                          reporte.tipo === 'perigo' ? 'bg-destructive/10 border-destructive/30' :
+                          reporte.tipo === 'alerta' ? 'bg-amber-500/10 border-amber-500/30' :
+                          'bg-blue-500/10 border-blue-500/30'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            {reporte.tipo === 'perigo' && <AlertTriangle className="h-5 w-5 text-destructive" />}
+                            {reporte.tipo === 'alerta' && <AlertTriangle className="h-5 w-5 text-amber-500" />}
+                            {reporte.tipo === 'sugestao' && <MessageSquare className="h-5 w-5 text-blue-500" />}
+                            <span className="font-semibold capitalize">{reporte.tipo}</span>
+                            {!reporte.lido && <Badge variant="default" className="ml-2 text-[10px] h-4">Novo</Badge>}
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(reporte.data).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                        <p className="text-sm mt-2 whitespace-pre-wrap">{reporte.mensagem}</p>
+                        
+                        {!reporte.lido && (
+                          <div className="mt-4 flex justify-end">
+                            <Button size="sm" variant="outline" onClick={() => handleMarcarLido(reporte.id!)}>
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Marcar como lido
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )
