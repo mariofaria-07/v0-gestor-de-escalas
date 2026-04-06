@@ -1,19 +1,84 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { EscalaDia } from "@/lib/firebase-types"
-import { Bus, Users, Calendar, AlertTriangle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import type { EscalaDia, SolicitacaoAlteracao } from "@/lib/firebase-types"
+import { Bus, Users, Calendar, AlertTriangle, MoreVertical, MapPin, UserMinus, UserPlus, Check, X } from "lucide-react"
+import { atualizarLocal, adicionarSolicitacao, processarSolicitacao } from "@/lib/firebase-service"
 
 interface EscalaCardProps {
   escala: EscalaDia | null
   dataFormatada: string
   diaSemana: string
+  onUpdate?: () => void
 }
 
-export function EscalaCard({ escala, dataFormatada, diaSemana }: EscalaCardProps) {
+export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate }: EscalaCardProps) {
+  const [actionState, setActionState] = useState<Record<string, 'local' | 'excluir' | 'substituir' | null>>({})
+  const [localInput, setLocalInput] = useState("")
+  const [substitutoInput, setSubstitutoInput] = useState("")
+  const [adminPassword, setAdminPassword] = useState("")
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+
   const hasEscala = escala && escala.colaboradores.length > 0
   const isFeriado = escala?.feriado
+  const solicitacoesPendentes = escala?.solicitacoes?.filter(s => s.status === 'pendente') || []
+
+  const toggleAction = (colaborador: string, action: 'local' | 'excluir' | 'substituir' | null) => {
+    setActionState(prev => ({ ...prev, [colaborador]: prev[colaborador] === action ? null : action }))
+    setLocalInput("")
+    setSubstitutoInput("")
+  }
+
+  const handleSetLocal = async (colaborador: string, tipo: 'matriz' | 'outro') => {
+    if (!escala) return
+    setIsProcessing(true)
+    const local = tipo === 'matriz' ? null : localInput
+    const success = await atualizarLocal(escala.data, colaborador, local)
+    if (success && onUpdate) onUpdate()
+    toggleAction(colaborador, null)
+    setIsProcessing(false)
+  }
+
+  const handleSolicitacao = async (colaborador: string, tipo: 'exclusao' | 'substituicao') => {
+    if (!escala) return
+    if (tipo === 'substituicao' && !substitutoInput.trim()) return
+    
+    setIsProcessing(true)
+    const solicitacao: SolicitacaoAlteracao = {
+      id: Math.random().toString(36).substring(2, 9),
+      tipo,
+      colaboradorOriginal: colaborador,
+      colaboradorNovo: tipo === 'substituicao' ? substitutoInput.trim() : undefined,
+      status: 'pendente',
+      dataSolicitacao: new Date().toISOString()
+    }
+    
+    const success = await adicionarSolicitacao(escala.data, solicitacao)
+    if (success && onUpdate) onUpdate()
+    toggleAction(colaborador, null)
+    setIsProcessing(false)
+  }
+
+  const handleAprovarRejeitar = async (solicitacaoId: string, acao: 'aprovar' | 'rejeitar') => {
+    if (!escala) return
+    if (acao === 'aprovar' && adminPassword !== 'RA2026') {
+      alert("Senha incorreta!")
+      return
+    }
+    
+    setIsProcessing(true)
+    const success = await processarSolicitacao(escala.data, solicitacaoId, acao)
+    if (success && onUpdate) onUpdate()
+    setApprovingId(null)
+    setAdminPassword("")
+    setIsProcessing(false)
+  }
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-2xl border-0 overflow-hidden">
@@ -63,31 +128,169 @@ export function EscalaCard({ escala, dataFormatada, diaSemana }: EscalaCardProps
               </Badge>
             </div>
             
-            <ul className="space-y-3">
+            <ul className="space-y-0">
               {escala.colaboradores.map((colaborador, index) => {
                 const localDiferente = escala.locaisDiferentes?.[colaborador];
+                const solicitacaoPendente = solicitacoesPendentes.find(s => s.colaboradorOriginal === colaborador);
+                const action = actionState[colaborador];
+
                 return (
                   <li
                     key={index}
-                    className="flex items-center gap-4 p-4 bg-gradient-to-r from-secondary/80 to-secondary/40 rounded-xl border border-border/50 shadow-sm"
+                    className="flex flex-col p-4 bg-gradient-to-r from-secondary/80 to-secondary/40 rounded-xl border border-border/50 shadow-sm mb-3"
                   >
-                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-md shrink-0">
-                      <span className="text-sm font-bold text-primary-foreground">
-                        {colaborador.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-foreground font-medium">{colaborador}</span>
-                      {localDiferente && (
-                        <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          📍 {localDiferente}
-                        </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-md shrink-0">
+                          <span className="text-sm font-bold text-primary-foreground">
+                            {colaborador.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-foreground font-medium">{colaborador}</span>
+                          {localDiferente && (
+                            <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                              📍 {localDiferente}
+                            </span>
+                          )}
+                          {solicitacaoPendente && (
+                            <span className="text-xs text-amber-600 mt-0.5 font-medium">
+                              ⏳ {solicitacaoPendente.tipo === 'exclusao' ? 'Exclusão pendente' : `Substituição por ${solicitacaoPendente.colaboradorNovo} pendente`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {!solicitacaoPendente && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => toggleAction(colaborador, 'local')}>
+                              <MapPin className="h-4 w-4 mr-2" /> Definir Local
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleAction(colaborador, 'substituir')}>
+                              <UserPlus className="h-4 w-4 mr-2" /> Substituir
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleAction(colaborador, 'excluir')} className="text-destructive">
+                              <UserMinus className="h-4 w-4 mr-2" /> Não vou
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
+
+                    {/* Action Forms */}
+                    {action === 'local' && (
+                      <div className="mt-4 pt-3 border-t border-border/50 flex flex-col gap-2">
+                        <p className="text-sm font-medium">Onde você vai pegar o transporte?</p>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handleSetLocal(colaborador, 'matriz')} disabled={isProcessing}>
+                            Na Matriz
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => toggleAction(colaborador, null)} disabled={isProcessing}>
+                            Cancelar
+                          </Button>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Input 
+                            placeholder="Outro local..." 
+                            value={localInput} 
+                            onChange={e => setLocalInput(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                          <Button size="sm" onClick={() => handleSetLocal(colaborador, 'outro')} disabled={!localInput.trim() || isProcessing}>
+                            Salvar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {action === 'excluir' && (
+                      <div className="mt-4 pt-3 border-t border-border/50 flex flex-col gap-2">
+                        <p className="text-sm font-medium text-destructive">Confirmar que não vai?</p>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="destructive" onClick={() => handleSolicitacao(colaborador, 'exclusao')} disabled={isProcessing}>
+                            Confirmar
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => toggleAction(colaborador, null)} disabled={isProcessing}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {action === 'substituir' && (
+                      <div className="mt-4 pt-3 border-t border-border/50 flex flex-col gap-2">
+                        <p className="text-sm font-medium">Quem vai no seu lugar?</p>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="Nome do substituto" 
+                            value={substitutoInput} 
+                            onChange={e => setSubstitutoInput(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                          <Button size="sm" onClick={() => handleSolicitacao(colaborador, 'substituicao')} disabled={!substitutoInput.trim() || isProcessing}>
+                            Solicitar
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => toggleAction(colaborador, null)} disabled={isProcessing}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </li>
                 )
               })}
             </ul>
+
+            {/* Pending Solicitacoes Admin Approval Section */}
+            {solicitacoesPendentes.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-border">
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  Aprovações Pendentes (Admin)
+                </h4>
+                <ul className="space-y-3">
+                  {solicitacoesPendentes.map(sol => (
+                    <li key={sol.id} className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/50 text-sm">
+                      <div className="mb-2">
+                        <span className="font-medium">{sol.colaboradorOriginal}</span>
+                        {sol.tipo === 'exclusao' ? ' solicitou exclusão.' : ` solicitou substituição por ${sol.colaboradorNovo}.`}
+                      </div>
+                      
+                      {approvingId === sol.id ? (
+                        <div className="flex gap-2 items-center flex-wrap">
+                          <Input 
+                            type="password" 
+                            placeholder="Senha Admin" 
+                            value={adminPassword} 
+                            onChange={e => setAdminPassword(e.target.value)}
+                            className="h-8 w-32 text-xs"
+                          />
+                          <Button size="sm" className="h-8 bg-green-600 hover:bg-green-700" onClick={() => handleAprovarRejeitar(sol.id, 'aprovar')} disabled={isProcessing}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="destructive" className="h-8" onClick={() => handleAprovarRejeitar(sol.id, 'rejeitar')} disabled={isProcessing}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8" onClick={() => setApprovingId(null)} disabled={isProcessing}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setApprovingId(sol.id)}>
+                          Avaliar Solicitação
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="mt-6 pt-5 border-t border-border">
               <p className="text-sm text-muted-foreground text-center">

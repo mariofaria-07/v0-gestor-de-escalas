@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { EscalaCard } from "./escala-card"
-import { getEscalaDia, getEscalaHoje } from "@/lib/firebase-service"
+import { getEscalaDia, getEscalaHoje, getTodasEscalas } from "@/lib/firebase-service"
 import type { EscalaDia } from "@/lib/firebase-types"
 import { Spinner } from "@/components/ui/spinner"
-import { Settings, Calendar as CalendarIcon, List } from "lucide-react"
+import { Settings, Calendar as CalendarIcon, List, Search } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { ptBR } from "date-fns/locale"
 
 function getDiaSemana(date: Date): string {
@@ -35,6 +37,20 @@ export function EscalaPublica() {
   const [loadingSelecionada, setLoadingSelecionada] = useState(false)
   const [dataAtual, setDataAtual] = useState<Date | null>(null)
   const [dataSelecionada, setDataSelecionada] = useState<Date | undefined>(new Date())
+  
+  const [searchTerm, setSearchTerm] = useState("")
+  const [searchResults, setSearchResults] = useState<EscalaDia[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+
+  const refreshData = async () => {
+    if (dataSelecionada) {
+      const dataStr = formatDate(dataSelecionada)
+      const escala = await getEscalaDia(dataStr)
+      setEscalaSelecionada(escala)
+    }
+    const hojeEscala = await getEscalaHoje()
+    setEscalaHoje(hojeEscala)
+  }
 
   useEffect(() => {
     const hoje = new Date()
@@ -73,6 +89,26 @@ export function EscalaPublica() {
 
     buscarEscala()
   }, [dataSelecionada])
+
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      setSearchResults([])
+      return
+    }
+    setIsSearching(true)
+    try {
+      const todas = await getTodasEscalas()
+      const term = searchTerm.toLowerCase()
+      const results = todas.filter(e => 
+        e.colaboradores.some(c => c.toLowerCase().includes(term))
+      )
+      setSearchResults(results)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
 
   if (loading || !dataAtual) {
     return (
@@ -116,10 +152,48 @@ export function EscalaPublica() {
               escala={escalaHoje}
               dataFormatada={formatDate(dataAtual)}
               diaSemana={getDiaSemana(dataAtual)}
+              onUpdate={refreshData}
             />
           </TabsContent>
           
           <TabsContent value="calendario" className="mt-0 flex flex-col items-center">
+            {/* Search section */}
+            <div className="w-full mb-6 bg-card rounded-xl shadow-sm border border-border p-4">
+              <h3 className="text-sm font-medium mb-3">Buscar meu histórico</h3>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Digite seu nome..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                />
+                <Button onClick={handleSearch} disabled={isSearching}>
+                  {isSearching ? <Spinner className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+              
+              {searchResults.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Dias escalados:</p>
+                  <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                    {searchResults.map(escala => (
+                      <div key={escala.data} className="text-sm p-2 bg-secondary/50 rounded flex justify-between items-center">
+                        <span>{escala.data}</span>
+                        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+                          const parts = escala.data.split('/')
+                          setDataSelecionada(new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])))
+                          setSearchResults([])
+                          setSearchTerm("")
+                        }}>
+                          Ver Escala
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="bg-card rounded-xl shadow-sm border border-border p-3 mb-6 w-full flex justify-center">
               <Calendar
                 mode="single"
@@ -140,6 +214,7 @@ export function EscalaPublica() {
                   escala={escalaSelecionada}
                   dataFormatada={formatDate(dataSelecionada)}
                   diaSemana={getDiaSemana(dataSelecionada)}
+                  onUpdate={refreshData}
                 />
               ) : null}
             </div>
