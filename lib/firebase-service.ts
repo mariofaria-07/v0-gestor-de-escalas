@@ -75,6 +75,7 @@ export async function salvarEscala(escala: EscalaDia): Promise<boolean> {
       data: escala.data,
       colaboradores: escala.colaboradores,
       locaisDiferentes: escala.locaisDiferentes || {},
+      solicitacoes: escala.solicitacoes || [],
       enviado: escala.enviado || false,
       enviadoEm: escala.enviadoEm || null,
       observacao: escala.observacao || null,
@@ -148,6 +149,105 @@ export async function deletarEscala(data: string): Promise<boolean> {
     return true
   } catch (error) {
     console.error("Erro ao deletar escala:", error)
+    return false
+  }
+}
+
+// Atualizar local de um colaborador
+export async function atualizarLocal(data: string, colaborador: string, local: string | null): Promise<boolean> {
+  try {
+    const docId = dateToSortKey(data)
+    const docRef = doc(db, ESCALAS_COLLECTION, docId)
+    const docSnap = await getDoc(docRef)
+    
+    if (docSnap.exists()) {
+      const escala = docSnap.data() as EscalaDia
+      const locais = escala.locaisDiferentes || {}
+      
+      if (local) {
+        locais[colaborador] = local
+      } else {
+        delete locais[colaborador]
+      }
+      
+      await updateDoc(docRef, { locaisDiferentes: locais })
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error("Erro ao atualizar local:", error)
+    return false
+  }
+}
+
+// Adicionar solicitação de alteração
+export async function adicionarSolicitacao(data: string, solicitacao: import("./firebase-types").SolicitacaoAlteracao): Promise<boolean> {
+  try {
+    const docId = dateToSortKey(data)
+    const docRef = doc(db, ESCALAS_COLLECTION, docId)
+    const docSnap = await getDoc(docRef)
+    
+    if (docSnap.exists()) {
+      const escala = docSnap.data() as EscalaDia
+      const solicitacoes = escala.solicitacoes || []
+      solicitacoes.push(solicitacao)
+      
+      await updateDoc(docRef, { solicitacoes })
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error("Erro ao adicionar solicitacao:", error)
+    return false
+  }
+}
+
+// Processar solicitação de alteração
+export async function processarSolicitacao(
+  data: string, 
+  solicitacaoId: string, 
+  acao: 'aprovar' | 'rejeitar'
+): Promise<boolean> {
+  try {
+    const docId = dateToSortKey(data)
+    const docRef = doc(db, ESCALAS_COLLECTION, docId)
+    const docSnap = await getDoc(docRef)
+    
+    if (docSnap.exists()) {
+      const escala = docSnap.data() as EscalaDia
+      const solicitacoes = escala.solicitacoes || []
+      const index = solicitacoes.findIndex(s => s.id === solicitacaoId)
+      
+      if (index === -1) return false;
+      
+      const sol = solicitacoes[index];
+      sol.status = acao === 'aprovar' ? 'aprovado' : 'rejeitado';
+      
+      let colaboradores = [...(escala.colaboradores || [])];
+      
+      if (acao === 'aprovar') {
+        if (sol.tipo === 'exclusao') {
+          colaboradores = colaboradores.filter(c => c !== sol.colaboradorOriginal);
+        } else if (sol.tipo === 'substituicao' && sol.colaboradorNovo) {
+          const colIndex = colaboradores.indexOf(sol.colaboradorOriginal);
+          if (colIndex !== -1) {
+            colaboradores[colIndex] = sol.colaboradorNovo;
+          } else {
+            // Se por algum motivo não achar, adiciona
+            colaboradores.push(sol.colaboradorNovo);
+          }
+        }
+      }
+      
+      await updateDoc(docRef, { 
+        solicitacoes,
+        colaboradores
+      })
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error("Erro ao processar solicitacao:", error)
     return false
   }
 }
