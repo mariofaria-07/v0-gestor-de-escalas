@@ -11,6 +11,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { AutocompleteInput } from "@/components/ui/autocomplete"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { ptBR } from "date-fns/locale"
@@ -201,11 +202,13 @@ export function EscalaPublica() {
             <div className="w-full mb-6 bg-card rounded-xl shadow-sm border border-border p-4">
               <h3 className="text-sm font-medium mb-3">Buscar meu histórico</h3>
               <div className="flex gap-2">
-                <Input 
+                <AutocompleteInput 
                   placeholder="Digite seu nome..." 
                   value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  onChange={setSearchTerm}
+                  onEnter={handleSearch}
+                  options={allColaboradores}
+                  className="h-10"
                 />
                 <Button onClick={handleSearch} disabled={isSearching}>
                   {isSearching ? <Spinner className="h-4 w-4" /> : <Search className="h-4 w-4" />}

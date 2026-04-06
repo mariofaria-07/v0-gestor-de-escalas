@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { AutocompleteInput } from "@/components/ui/autocomplete"
 import type { EscalaDia, SolicitacaoAlteracao } from "@/lib/firebase-types"
 import { Bus, Users, Calendar, AlertTriangle, MoreVertical, MapPin, UserMinus, UserPlus, Check, X, Plus } from "lucide-react"
 import { atualizarLocal, adicionarSolicitacao, processarSolicitacao } from "@/lib/firebase-service"
@@ -16,58 +17,6 @@ interface EscalaCardProps {
   diaSemana: string
   onUpdate?: () => void
   allColaboradores?: string[]
-}
-
-function AutocompleteInput({ 
-  value, 
-  onChange, 
-  options, 
-  placeholder 
-}: { 
-  value: string, 
-  onChange: (val: string) => void, 
-  options: string[], 
-  placeholder: string 
-}) {
-  const [show, setShow] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setShow(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  const filtered = options.filter(o => o.toLowerCase().includes(value.toLowerCase()) && o !== value)
-
-  return (
-    <div className="relative w-full" ref={wrapperRef}>
-      <Input 
-        placeholder={placeholder} 
-        value={value} 
-        onChange={e => { onChange(e.target.value); setShow(true); }}
-        onFocus={() => setShow(true)}
-        className="h-8 text-sm"
-      />
-      {show && filtered.length > 0 && (
-        <ul className="absolute z-10 w-full bg-background border border-border rounded-md shadow-md max-h-40 overflow-auto mt-1">
-          {filtered.map(opt => (
-            <li 
-              key={opt} 
-              className="px-3 py-2 text-sm hover:bg-secondary cursor-pointer" 
-              onClick={() => { onChange(opt); setShow(false); }}
-            >
-              {opt}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
 }
 
 export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allColaboradores = [] }: EscalaCardProps) {
@@ -94,7 +43,7 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
   const handleSetLocal = async (colaborador: string, tipo: 'matriz' | 'outro') => {
     if (!escala) return
     setIsProcessing(true)
-    const local = tipo === 'matriz' ? null : localInput
+    const local = tipo === 'matriz' ? 'Bamaq Matriz' : localInput
     const success = await atualizarLocal(escala.data, colaborador, local)
     if (success && onUpdate) onUpdate()
     toggleAction(colaborador, null)
@@ -156,9 +105,9 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-2xl border-0 overflow-hidden">
+    <Card className="w-full max-w-md mx-auto shadow-2xl border-0">
       {/* Header com gradiente */}
-      <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-6 pt-6">
+      <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-6 pt-6 rounded-t-xl">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-white/20 rounded-xl shadow-lg">
             <Bus className="h-7 w-7" />

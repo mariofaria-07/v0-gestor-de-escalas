@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AutocompleteInput } from "@/components/ui/autocomplete"
 import {
   getTodasEscalas,
   salvarEscala,
@@ -53,12 +54,21 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   const [uploading, setUploading] = useState(false)
   const [reportes, setReportes] = useState<Reporte[]>([])
   const [loadingReportes, setLoadingReportes] = useState(false)
+  const [allColaboradores, setAllColaboradores] = useState<string[]>([])
 
   const carregarEscalas = useCallback(async () => {
     setLoading(true)
     try {
       const data = await getTodasEscalas()
       setEscalas(data)
+      
+      // Extrair todos os colaboradores unicos
+      const nomes = new Set<string>()
+      data.forEach(e => {
+        e.colaboradores?.forEach(c => nomes.add(c))
+      })
+      setAllColaboradores(Array.from(nomes).sort())
+      
     } catch (error) {
       console.error("Erro ao carregar escalas:", error)
     } finally {
@@ -248,8 +258,9 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         <Tabs defaultValue="escala" className="w-full">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap h-auto">
             <TabsTrigger value="escala">Gerenciar Escalas</TabsTrigger>
+            <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
             <TabsTrigger value="reportes" className="relative">
               Reportes
               {reportesNaoLidos > 0 && (
@@ -379,11 +390,12 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                       <div className="space-y-3">
                         <div className="flex flex-col gap-2">
                           <div className="flex gap-2">
-                            <Input
+                            <AutocompleteInput
                               placeholder="Nome do colaborador"
                               value={novoColaborador}
-                              onChange={(e) => setNovoColaborador(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && addColaborador()}
+                              onChange={setNovoColaborador}
+                              onEnter={addColaborador}
+                              options={allColaboradores}
                             />
                             <Button onClick={addColaborador} size="sm">
                               <Plus className="h-4 w-4" />
@@ -472,6 +484,102 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="indicadores">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent border-b border-border">
+                <CardTitle className="text-lg flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <Users className="h-5 w-5 text-blue-600" />
+                  </div>
+                  Indicadores de Alterações
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Spinner className="h-8 w-8 text-primary" />
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-secondary/50 rounded-xl border border-border">
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Substituições</h4>
+                        <p className="text-2xl font-bold mb-2">
+                          {escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'substituicao' && s.status === 'aprovado').length || 0), 0)}
+                        </p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'substituicao' && s.status === 'aprovado').map(s => (
+                            <div key={s.id}>{s.colaboradorOriginal} → {s.colaboradorNovo} ({e.data})</div>
+                          )))}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-secondary/50 rounded-xl border border-border">
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Faltas (Exclusões)</h4>
+                        <p className="text-2xl font-bold mb-2">
+                          {escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').length || 0), 0)}
+                        </p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').map(s => (
+                            <div key={s.id}>{s.colaboradorOriginal} ({e.data})</div>
+                          )))}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-secondary/50 rounded-xl border border-border">
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Adições Esporádicas</h4>
+                        <p className="text-2xl font-bold mb-2">
+                          {escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'adicao' && s.status === 'aprovado').length || 0), 0)}
+                        </p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'adicao' && s.status === 'aprovado').map(s => (
+                            <div key={s.id}>{s.colaboradorNovo} ({e.data})</div>
+                          )))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Endereços Frequentes (Fora da Matriz)</h3>
+                      <div className="space-y-3">
+                        {(() => {
+                          const enderecos: Record<string, { count: number, pessoas: Set<string> }> = {};
+                          escalas.forEach(e => {
+                            if (e.locaisDiferentes) {
+                              Object.entries(e.locaisDiferentes).forEach(([pessoa, local]) => {
+                                if (local && local !== 'Bamaq Matriz') {
+                                  if (!enderecos[local]) enderecos[local] = { count: 0, pessoas: new Set() };
+                                  enderecos[local].count++;
+                                  enderecos[local].pessoas.add(pessoa);
+                                }
+                              });
+                            }
+                          });
+                          
+                          const sortedEnderecos = Object.entries(enderecos).sort((a, b) => b[1].count - a[1].count);
+                          
+                          if (sortedEnderecos.length === 0) {
+                            return <p className="text-sm text-muted-foreground">Nenhum endereço diferente registrado.</p>
+                          }
+                          
+                          return sortedEnderecos.map(([local, data]) => (
+                            <div key={local} className="p-3 bg-card border rounded-lg shadow-sm flex justify-between items-center">
+                              <div>
+                                <p className="font-medium">{local}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Utilizado por: {Array.from(data.pessoas).join(', ')}
+                                </p>
+                              </div>
+                              <Badge variant="secondary">{data.count} vezes</Badge>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="reportes">
