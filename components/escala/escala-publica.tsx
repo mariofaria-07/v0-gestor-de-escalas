@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { EscalaCard } from "./escala-card"
-import { getEscalaHoje, getTodasEscalas } from "@/lib/firebase-service"
+import { getEscalaDia, getEscalaHoje } from "@/lib/firebase-service"
 import type { EscalaDia } from "@/lib/firebase-types"
 import { Spinner } from "@/components/ui/spinner"
-import { Settings, Search, Calendar as CalendarIcon } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Settings, Calendar as CalendarIcon, List } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ptBR } from "date-fns/locale"
 
 function getDiaSemana(date: Date): string {
   const dias = [
@@ -30,44 +30,49 @@ function formatDate(date: Date): string {
 
 export function EscalaPublica() {
   const [escalaHoje, setEscalaHoje] = useState<EscalaDia | null>(null)
-  const [todasEscalas, setTodasEscalas] = useState<EscalaDia[]>([])
+  const [escalaSelecionada, setEscalaSelecionada] = useState<EscalaDia | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingSelecionada, setLoadingSelecionada] = useState(false)
   const [dataAtual, setDataAtual] = useState<Date | null>(null)
-  
-  // Estados para a visualização do motorista
-  const [buscaMotorista, setBuscaMotorista] = useState("")
-  const [view, setView] = useState<"hoje" | "mensal">("hoje")
+  const [dataSelecionada, setDataSelecionada] = useState<Date | undefined>(new Date())
 
   useEffect(() => {
     const hoje = new Date()
     setDataAtual(hoje)
     
-    async function carregarDados() {
+    async function carregarEscala() {
       try {
-        const [escalaDia, escalas] = await Promise.all([
-          getEscalaHoje(),
-          getTodasEscalas()
-        ])
-        setEscalaHoje(escalaDia)
-        setTodasEscalas(escalas)
+        const escala = await getEscalaHoje()
+        setEscalaHoje(escala)
+        setEscalaSelecionada(escala)
       } catch (error) {
-        console.error("Erro ao carregar dados:", error)
+        console.error("Erro ao carregar escala:", error)
       } finally {
         setLoading(false)
       }
     }
     
-    carregarDados()
+    carregarEscala()
   }, [])
 
-  const todosColaboradores = Array.from(
-    new Set(todasEscalas.flatMap((e) => e.colaboradores))
-  ).sort()
+  useEffect(() => {
+    if (!dataSelecionada) return
 
-  // Filtrar escalas do motorista buscado
-  const escalasDoMotorista = todasEscalas.filter(e => 
-    buscaMotorista && e.colaboradores.some(c => c.toLowerCase().includes(buscaMotorista.toLowerCase()))
-  )
+    async function buscarEscala() {
+      setLoadingSelecionada(true)
+      try {
+        const dataStr = formatDate(dataSelecionada!)
+        const escala = await getEscalaDia(dataStr)
+        setEscalaSelecionada(escala)
+      } catch (error) {
+        console.error("Erro ao buscar escala da data:", error)
+      } finally {
+        setLoadingSelecionada(false)
+      }
+    }
+
+    buscarEscala()
+  }, [dataSelecionada])
 
   if (loading || !dataAtual) {
     return (
@@ -84,6 +89,7 @@ export function EscalaPublica() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex flex-col items-center p-4 relative pt-16">
+      {/* Link discreto para admin */}
       <Link 
         href="/admin" 
         className="absolute top-4 right-4 p-2 text-muted-foreground/30 hover:text-muted-foreground transition-colors rounded-full hover:bg-muted/50"
@@ -92,87 +98,56 @@ export function EscalaPublica() {
         <Settings className="h-5 w-5" />
       </Link>
 
-      {/* Alternador de Visualização */}
-      <div className="flex bg-muted/50 p-1 rounded-lg mb-8">
-        <button
-          onClick={() => setView("hoje")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === "hoje" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Plantão de Hoje
-        </button>
-        <button
-          onClick={() => setView("mensal")}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === "mensal" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Minha Escala
-        </button>
-      </div>
-      
-      {view === "hoje" ? (
-        <EscalaCard
-          escala={escalaHoje}
-          dataFormatada={formatDate(dataAtual)}
-          diaSemana={getDiaSemana(dataAtual)}
-        />
-      ) : (
-        <Card className="w-full max-w-md border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
-              <CalendarIcon className="h-6 w-6" />
-              Buscar Meus Plantões
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 space-y-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                list="motoristas-list"
-                placeholder="Digite seu nome..."
-                className="pl-9"
-                value={buscaMotorista}
-                onChange={(e) => setBuscaMotorista(e.target.value)}
+      <div className="w-full max-w-md mx-auto">
+        <Tabs defaultValue="hoje" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="hoje" className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              Escala de Hoje
+            </TabsTrigger>
+            <TabsTrigger value="calendario" className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              Calendário
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="hoje" className="mt-0">
+            <EscalaCard
+              escala={escalaHoje}
+              dataFormatada={formatDate(dataAtual)}
+              diaSemana={getDiaSemana(dataAtual)}
+            />
+          </TabsContent>
+          
+          <TabsContent value="calendario" className="mt-0 flex flex-col items-center">
+            <div className="bg-card rounded-xl shadow-sm border border-border p-3 mb-6 w-full flex justify-center">
+              <Calendar
+                mode="single"
+                selected={dataSelecionada}
+                onSelect={setDataSelecionada}
+                locale={ptBR}
+                className="rounded-md"
               />
-              <datalist id="motoristas-list">
-                {todosColaboradores.map((nome) => (
-                  <option key={nome} value={nome} />
-                ))}
-              </datalist>
             </div>
 
-            {buscaMotorista && (
-              <div className="space-y-4 mt-6">
-                <h3 className="font-medium text-muted-foreground text-sm">
-                  Plantões encontrados para <strong className="text-foreground">{buscaMotorista}</strong>:
-                </h3>
-                
-                {escalasDoMotorista.length > 0 ? (
-                  <div className="grid gap-3">
-                    {escalasDoMotorista.map(escala => (
-                      <div key={escala.data} className="flex items-center justify-between p-3 rounded-lg border bg-card text-card-foreground shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-primary/10 text-primary p-2 rounded-md font-bold">
-                            {escala.data.split('/')[0]}
-                          </div>
-                          <div>
-                            <p className="font-medium">{escala.data}</p>
-                            {escala.feriado && <p className="text-xs text-muted-foreground">{escala.descricaoFeriado}</p>}
-                          </div>
-                        </div>
-                        <Badge variant="default" className="bg-green-600 hover:bg-green-700">Escalado</Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center p-6 border rounded-lg bg-muted/20 border-dashed">
-                    <p className="text-muted-foreground">Nenhum plantão encontrado.</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            <div className="w-full">
+              {loadingSelecionada ? (
+                <div className="flex justify-center py-8">
+                  <Spinner className="h-6 w-6 text-primary" />
+                </div>
+              ) : dataSelecionada ? (
+                <EscalaCard
+                  escala={escalaSelecionada}
+                  dataFormatada={formatDate(dataSelecionada)}
+                  diaSemana={getDiaSemana(dataSelecionada)}
+                />
+              ) : null}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
       
+      {/* Footer discreto */}
       <p className="mt-8 text-xs text-muted-foreground/50">
         Transporte Rio Acima
       </p>

@@ -64,19 +64,29 @@ export function EscalaCard({ escala, dataFormatada, diaSemana }: EscalaCardProps
             </div>
             
             <ul className="space-y-3">
-              {escala.colaboradores.map((colaborador, index) => (
-                <li
-                  key={index}
-                  className="flex items-center gap-4 p-4 bg-gradient-to-r from-secondary/80 to-secondary/40 rounded-xl border border-border/50 shadow-sm"
-                >
-                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-md">
-                    <span className="text-sm font-bold text-primary-foreground">
-                      {colaborador.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-foreground font-medium">{colaborador}</span>
-                </li>
-              ))}
+              {escala.colaboradores.map((colaborador, index) => {
+                const localDiferente = escala.locaisDiferentes?.[colaborador];
+                return (
+                  <li
+                    key={index}
+                    className="flex items-center gap-4 p-4 bg-gradient-to-r from-secondary/80 to-secondary/40 rounded-xl border border-border/50 shadow-sm"
+                  >
+                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-md shrink-0">
+                      <span className="text-sm font-bold text-primary-foreground">
+                        {colaborador.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-foreground font-medium">{colaborador}</span>
+                      {localDiferente && (
+                        <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          📍 {localDiferente}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
 
             <div className="mt-6 pt-5 border-t border-border">

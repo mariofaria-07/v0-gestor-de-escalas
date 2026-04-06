@@ -28,8 +28,6 @@ import {
   RefreshCw,
   Home,
   Bus,
-  Share2,
-  MessageCircle
 } from "lucide-react"
 import Link from "next/link"
 
@@ -42,12 +40,11 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   const [loading, setLoading] = useState(true)
   const [editingDate, setEditingDate] = useState<string | null>(null)
   const [editColaboradores, setEditColaboradores] = useState<string[]>([])
+  const [editLocaisDiferentes, setEditLocaisDiferentes] = useState<Record<string, string>>({})
   const [novoColaborador, setNovoColaborador] = useState("")
+  const [isLocalDiferente, setIsLocalDiferente] = useState(false)
+  const [novoLocal, setNovoLocal] = useState("")
   const [uploading, setUploading] = useState(false)
-
-  // Estados para o modal de compartilhamento
-  const [shareDriverModalOpen, setShareDriverModalOpen] = useState(false)
-  const [shareDriverName, setShareDriverName] = useState("")
 
   const carregarEscalas = useCallback(async () => {
     setLoading(true)
@@ -64,11 +61,6 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   useEffect(() => {
     carregarEscalas()
   }, [carregarEscalas])
-
-  // Extrai todos os colaboradores únicos para sugerir no input
-  const todosColaboradores = Array.from(
-    new Set(escalas.flatMap((e) => e.colaboradores))
-  ).sort()
 
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" })
@@ -98,23 +90,29 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   function startEditing(escala: EscalaDia) {
     setEditingDate(escala.data)
     setEditColaboradores([...escala.colaboradores])
+    setEditLocaisDiferentes({ ...(escala.locaisDiferentes || {}) })
     setNovoColaborador("")
+    setIsLocalDiferente(false)
+    setNovoLocal("")
   }
 
   function cancelEditing() {
     setEditingDate(null)
     setEditColaboradores([])
+    setEditLocaisDiferentes({})
     setNovoColaborador("")
+    setIsLocalDiferente(false)
+    setNovoLocal("")
   }
 
   async function saveEditing() {
     if (!editingDate) return
 
     try {
-      await atualizarColaboradores(editingDate, editColaboradores)
+      await atualizarColaboradores(editingDate, editColaboradores, editLocaisDiferentes)
       setEscalas((prev) =>
         prev.map((e) =>
-          e.data === editingDate ? { ...e, colaboradores: editColaboradores } : e
+          e.data === editingDate ? { ...e, colaboradores: editColaboradores, locaisDiferentes: editLocaisDiferentes } : e
         )
       )
       cancelEditing()
@@ -125,14 +123,26 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   }
 
   function addColaborador() {
-    if (novoColaborador.trim()) {
-      setEditColaboradores((prev) => [...prev, novoColaborador.trim()])
+    const nome = novoColaborador.trim()
+    if (nome) {
+      setEditColaboradores((prev) => [...prev, nome])
+      if (isLocalDiferente && novoLocal.trim()) {
+        setEditLocaisDiferentes((prev) => ({ ...prev, [nome]: novoLocal.trim() }))
+      }
       setNovoColaborador("")
+      setIsLocalDiferente(false)
+      setNovoLocal("")
     }
   }
 
   function removeColaborador(index: number) {
+    const nome = editColaboradores[index]
     setEditColaboradores((prev) => prev.filter((_, i) => i !== index))
+    setEditLocaisDiferentes((prev) => {
+      const next = { ...prev }
+      delete next[nome]
+      return next
+    })
   }
 
   async function handleEnviarManual(escala: EscalaDia) {
@@ -163,6 +173,7 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   }
 
+  // Filtrar para mostrar apenas escalas futuras ou de hoje
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
 
@@ -176,57 +187,9 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
     return escalaDate >= hoje
   })
 
-  // Funções de Compartilhamento
-  function handleShareGroup() {
-    let text = `*Escala de Plantões*\n\n`
-    let hasEntries = false
-
-    escalasFiltradas.forEach((e) => {
-      if (e.colaboradores.length > 0) {
-        text += `🗓️ *${e.data}* - ${e.colaboradores.join(", ")}\n`
-        hasEntries = true
-      }
-    })
-
-    if (!hasEntries) {
-      alert("Não há escalas futuras definidas.")
-      return
-    }
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
-    window.open(whatsappUrl, "_blank")
-  }
-
-  function handleShareDriver() {
-    if (!shareDriverName) {
-      alert("Selecione um motorista.")
-      return
-    }
-
-    let text = `Olá *${shareDriverName}*, aqui estão seus próximos plantões:\n\n`
-    let count = 0
-
-    escalasFiltradas.forEach((e) => {
-      if (e.colaboradores.includes(shareDriverName)) {
-        text += `✅ *${e.data}*\n`
-        count++
-      }
-    })
-
-    if (count === 0) {
-      alert(`${shareDriverName} não tem plantões futuros definidos.`)
-      return
-    }
-
-    text += `\nTotal: ${count} plantões. Bom trabalho! 🚐💨`
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`
-    window.open(whatsappUrl, "_blank")
-    setShareDriverModalOpen(false)
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30">
+      {/* Header */}
       <header className="bg-primary text-primary-foreground sticky top-0 z-10 shadow-md">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -254,16 +217,17 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+        {/* Upload e Refresh */}
         <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-accent/10 to-transparent border-b border-border">
             <CardTitle className="text-lg flex items-center gap-3">
               <div className="p-2 bg-accent/20 rounded-lg">
                 <Upload className="h-5 w-5 text-accent" />
               </div>
-              Gerenciar Escalas
+              Importar Escala
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="pt-6">
             <div className="flex gap-4 flex-wrap">
               <label className="flex-1 min-w-[200px]">
                 <input
@@ -299,21 +263,10 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                 Atualizar
               </Button>
             </div>
-
-            {/* Botões de Compartilhamento */}
-            <div className="flex gap-2 pt-2 border-t border-border mt-4">
-              <Button onClick={handleShareGroup} className="bg-green-600 hover:bg-green-700 text-white flex-1 sm:flex-none">
-                <Share2 className="h-4 w-4 mr-2" />
-                Compartilhar no Grupo
-              </Button>
-              <Button onClick={() => setShareDriverModalOpen(true)} variant="outline" className="border-green-600 text-green-600 hover:bg-green-50 flex-1 sm:flex-none">
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Compartilhar com Motorista
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
+        {/* Lista de Escalas */}
         <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-border">
             <CardTitle className="text-lg flex items-center gap-3">
@@ -340,6 +293,7 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                     key={escala.data}
                     className="border border-border rounded-lg p-4"
                   >
+                    {/* Cabecalho da Escala */}
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <span className="font-semibold text-foreground">
@@ -376,25 +330,41 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                       </div>
                     </div>
 
+                    {/* Edicao */}
                     {editingDate === escala.data ? (
                       <div className="space-y-3">
-                        <div className="flex gap-2">
-                          {/* Input com Datalist para Sugestão de Nomes */}
-                          <Input
-                            list="colaboradores-list"
-                            placeholder="Nome do colaborador"
-                            value={novoColaborador}
-                            onChange={(e) => setNovoColaborador(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && addColaborador()}
-                          />
-                          <datalist id="colaboradores-list">
-                            {todosColaboradores.map((nome) => (
-                              <option key={nome} value={nome} />
-                            ))}
-                          </datalist>
-                          <Button onClick={addColaborador} size="sm">
-                            <Plus className="h-4 w-4" />
-                          </Button>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Nome do colaborador"
+                              value={novoColaborador}
+                              onChange={(e) => setNovoColaborador(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && addColaborador()}
+                            />
+                            <Button onClick={addColaborador} size="sm">
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <input 
+                              type="checkbox" 
+                              id={`diff-location-${escala.data}`}
+                              checked={isLocalDiferente}
+                              onChange={(e) => setIsLocalDiferente(e.target.checked)}
+                              className="rounded border-slate-300 text-primary focus:ring-primary"
+                            />
+                            <label htmlFor={`diff-location-${escala.data}`} className="text-sm text-muted-foreground cursor-pointer">
+                              Pegar em local diferente da Matriz?
+                            </label>
+                          </div>
+                          {isLocalDiferente && (
+                            <Input
+                              placeholder="Descreva o local de embarque"
+                              value={novoLocal}
+                              onChange={(e) => setNovoLocal(e.target.value)}
+                              className="text-sm"
+                            />
+                          )}
                         </div>
                         <ul className="space-y-2">
                           {editColaboradores.map((col, idx) => (
@@ -402,7 +372,12 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                               key={idx}
                               className="flex items-center justify-between p-2 bg-secondary/50 rounded"
                             >
-                              <span>{col}</span>
+                              <div className="flex flex-col">
+                                <span>{col}</span>
+                                {editLocaisDiferentes[col] && (
+                                  <span className="text-xs text-muted-foreground">📍 {editLocaisDiferentes[col]}</span>
+                                )}
+                              </div>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -429,6 +404,7 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                         </div>
                       </div>
                     ) : (
+                      /* Lista de Colaboradores */
                       !escala.feriado && (
                         <div className="flex items-center gap-2 flex-wrap">
                           <Users className="h-4 w-4 text-muted-foreground" />
@@ -453,43 +429,6 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
           </CardContent>
         </Card>
       </main>
-
-      {/* Modal Compartilhar com Motorista */}
-      {shareDriverModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md animate-in fade-in zoom-in-95">
-            <CardHeader>
-              <CardTitle>Compartilhar com Motorista</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Selecione o motorista</label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={shareDriverName}
-                  onChange={(e) => setShareDriverName(e.target.value)}
-                >
-                  <option value="">Selecione...</option>
-                  {todosColaboradores.map((nome) => (
-                    <option key={nome} value={nome}>
-                      {nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShareDriverModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleShareDriver} className="bg-green-600 hover:bg-green-700 text-white">
-                  <Send className="h-4 w-4 mr-2" />
-                  Enviar WhatsApp
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }
