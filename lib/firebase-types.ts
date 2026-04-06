@@ -7,6 +7,7 @@ export interface EscalaDia {
   id?: string
   data: string // formato DD/MM/YYYY
   colaboradores: string[]
+  locaisDiferentes?: Record<string, string>
   enviado: boolean
   enviadoEm?: string
   observacao?: string

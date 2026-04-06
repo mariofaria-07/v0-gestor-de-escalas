@@ -74,6 +74,7 @@ export async function salvarEscala(escala: EscalaDia): Promise<boolean> {
     await setDoc(doc(db, ESCALAS_COLLECTION, docId), {
       data: escala.data,
       colaboradores: escala.colaboradores,
+      locaisDiferentes: escala.locaisDiferentes || {},
       enviado: escala.enviado || false,
       enviadoEm: escala.enviadoEm || null,
       observacao: escala.observacao || null,
@@ -110,11 +111,12 @@ export async function importarEscalas(escalaData: Record<string, string[]>): Pro
 }
 
 // Atualizar colaboradores de uma escala
-export async function atualizarColaboradores(data: string, colaboradores: string[]): Promise<boolean> {
+export async function atualizarColaboradores(data: string, colaboradores: string[], locaisDiferentes?: Record<string, string>): Promise<boolean> {
   try {
     const docId = dateToSortKey(data)
     await updateDoc(doc(db, ESCALAS_COLLECTION, docId), {
       colaboradores,
+      locaisDiferentes: locaisDiferentes || {},
     })
     return true
   } catch (error) {
