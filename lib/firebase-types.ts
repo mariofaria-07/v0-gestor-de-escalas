@@ -5,8 +5,8 @@ export interface Colaborador {
 
 export interface SolicitacaoAlteracao {
   id: string;
-  tipo: 'exclusao' | 'substituicao';
-  colaboradorOriginal: string;
+  tipo: 'exclusao' | 'substituicao' | 'adicao';
+  colaboradorOriginal?: string; // Opcional para adicao
   colaboradorNovo?: string;
   status: 'pendente' | 'aprovado' | 'rejeitado';
   dataSolicitacao: string;
@@ -30,4 +30,12 @@ export interface ConfiguracaoEnvio {
   diasSemana: number[] // 1-5 para seg-sex
   telefoneMotorista: string
   ativo: boolean
+}
+
+export interface Reporte {
+  id?: string;
+  tipo: 'perigo' | 'alerta' | 'sugestao';
+  mensagem: string;
+  data: string;
+  lido: boolean;
 }

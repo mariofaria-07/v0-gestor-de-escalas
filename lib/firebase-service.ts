@@ -10,10 +10,12 @@ import {
   query,
   where,
   orderBy,
+  addDoc,
 } from "firebase/firestore"
-import type { EscalaDia } from "./firebase-types"
+import type { EscalaDia, Reporte } from "./firebase-types"
 
 const ESCALAS_COLLECTION = "escalas"
+const REPORTES_COLLECTION = "reportes"
 
 // Converter data DD/MM/YYYY para YYYYMMDD para ordenacao
 function dateToSortKey(date: string): string {
@@ -63,6 +65,21 @@ export async function getTodasEscalas(): Promise<EscalaDia[]> {
     return escalas
   } catch (error) {
     console.error("Erro ao buscar escalas:", error)
+    return []
+  }
+}
+
+// Obter todos os nomes de colaboradores únicos do histórico
+export async function getTodosColaboradoresNomes(): Promise<string[]> {
+  try {
+    const escalas = await getTodasEscalas()
+    const nomes = new Set<string>()
+    escalas.forEach(e => {
+      e.colaboradores?.forEach(c => nomes.add(c))
+    })
+    return Array.from(nomes).sort()
+  } catch (error) {
+    console.error("Erro ao buscar nomes de colaboradores:", error)
     return []
   }
 }
@@ -226,14 +243,18 @@ export async function processarSolicitacao(
       let colaboradores = [...(escala.colaboradores || [])];
       
       if (acao === 'aprovar') {
-        if (sol.tipo === 'exclusao') {
+        if (sol.tipo === 'exclusao' && sol.colaboradorOriginal) {
           colaboradores = colaboradores.filter(c => c !== sol.colaboradorOriginal);
-        } else if (sol.tipo === 'substituicao' && sol.colaboradorNovo) {
+        } else if (sol.tipo === 'substituicao' && sol.colaboradorOriginal && sol.colaboradorNovo) {
           const colIndex = colaboradores.indexOf(sol.colaboradorOriginal);
           if (colIndex !== -1) {
             colaboradores[colIndex] = sol.colaboradorNovo;
           } else {
             // Se por algum motivo não achar, adiciona
+            colaboradores.push(sol.colaboradorNovo);
+          }
+        } else if (sol.tipo === 'adicao' && sol.colaboradorNovo) {
+          if (!colaboradores.includes(sol.colaboradorNovo)) {
             colaboradores.push(sol.colaboradorNovo);
           }
         }
@@ -248,6 +269,43 @@ export async function processarSolicitacao(
     return false
   } catch (error) {
     console.error("Erro ao processar solicitacao:", error)
+    return false
+  }
+}
+
+// Salvar um novo reporte
+export async function salvarReporte(reporte: Omit<Reporte, 'id'>): Promise<boolean> {
+  try {
+    await addDoc(collection(db, REPORTES_COLLECTION), reporte)
+    return true
+  } catch (error) {
+    console.error("Erro ao salvar reporte:", error)
+    return false
+  }
+}
+
+// Obter todos os reportes
+export async function getReportes(): Promise<Reporte[]> {
+  try {
+    const querySnapshot = await getDocs(collection(db, REPORTES_COLLECTION))
+    const reportes: Reporte[] = []
+    querySnapshot.forEach((doc) => {
+      reportes.push({ id: doc.id, ...doc.data() } as Reporte)
+    })
+    return reportes.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  } catch (error) {
+    console.error("Erro ao buscar reportes:", error)
+    return []
+  }
+}
+
+// Marcar reporte como lido
+export async function marcarReporteLido(id: string): Promise<boolean> {
+  try {
+    await updateDoc(doc(db, REPORTES_COLLECTION, id), { lido: true })
+    return true
+  } catch (error) {
+    console.error("Erro ao marcar reporte como lido:", error)
     return false
   }
 }
