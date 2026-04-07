@@ -37,6 +37,7 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import Link from "next/link"
+import { PreenchimentoMensal } from "./preenchimento-mensal"
 
 interface AdminPanelProps {
   onLogout: () => void
@@ -260,6 +261,7 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
         <Tabs defaultValue="escala" className="w-full">
           <TabsList className="mb-6 flex-wrap h-auto">
             <TabsTrigger value="escala">Gerenciar Escalas</TabsTrigger>
+            <TabsTrigger value="lote">Preenchimento Mensal</TabsTrigger>
             <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
             <TabsTrigger value="reportes" className="relative">
               Reportes
@@ -272,67 +274,22 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
           </TabsList>
 
           <TabsContent value="escala" className="space-y-6">
-            {/* Upload e Refresh */}
+            {/* Lista de Escalas */}
             <Card className="border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-accent/10 to-transparent border-b border-border">
-            <CardTitle className="text-lg flex items-center gap-3">
-              <div className="p-2 bg-accent/20 rounded-lg">
-                <Upload className="h-5 w-5 text-accent" />
-              </div>
-              Importar Escala
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="flex gap-4 flex-wrap">
-              <label className="flex-1 min-w-[200px]">
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  disabled={uploading}
-                  asChild
-                >
-                  <span>
-                    {uploading ? (
-                      <>
-                        <Spinner className="h-4 w-4 mr-2" />
-                        Importando...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Selecionar arquivo CSV
-                      </>
-                    )}
-                  </span>
+              <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-border flex flex-row items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-3">
+                  <div className="p-2 bg-primary/20 rounded-lg">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  Escalas
+                  <Badge variant="secondary" className="ml-2">{escalasFiltradas.length} dias</Badge>
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={carregarEscalas} disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Atualizar
                 </Button>
-              </label>
-              <Button variant="outline" onClick={carregarEscalas} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Atualizar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Lista de Escalas */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-border">
-            <CardTitle className="text-lg flex items-center gap-3">
-              <div className="p-2 bg-primary/20 rounded-lg">
-                <Calendar className="h-5 w-5 text-primary" />
-              </div>
-              Escalas
-              <Badge variant="secondary" className="ml-auto">{escalasFiltradas.length} dias</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
+              </CardHeader>
+              <CardContent className="pt-6">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Spinner className="h-6 w-6 text-primary" />
@@ -484,6 +441,10 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="lote">
+            <PreenchimentoMensal onUpdate={carregarEscalas} allColaboradores={allColaboradores} />
           </TabsContent>
 
           <TabsContent value="indicadores">
