@@ -8,6 +8,7 @@ export interface SolicitacaoAlteracao {
   tipo: 'exclusao' | 'substituicao' | 'adicao';
   colaboradorOriginal?: string; // Opcional para adicao
   colaboradorNovo?: string;
+  motivo?: string; // Motivo para exclusao
   status: 'pendente' | 'aprovado' | 'rejeitado';
   dataSolicitacao: string;
 }

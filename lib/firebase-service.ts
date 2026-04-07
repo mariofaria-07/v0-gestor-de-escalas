@@ -219,6 +219,43 @@ export async function adicionarSolicitacao(data: string, solicitacao: import("./
   }
 }
 
+// Registrar falta (exclusão automática)
+export async function registrarFalta(data: string, colaborador: string, motivo: string): Promise<boolean> {
+  try {
+    const docId = dateToSortKey(data)
+    const docRef = doc(db, ESCALAS_COLLECTION, docId)
+    const docSnap = await getDoc(docRef)
+    
+    if (docSnap.exists()) {
+      const escala = docSnap.data() as EscalaDia
+      const solicitacoes = escala.solicitacoes || []
+      
+      const solicitacao: import("./firebase-types").SolicitacaoAlteracao = {
+        id: Math.random().toString(36).substring(2, 9),
+        tipo: 'exclusao',
+        colaboradorOriginal: colaborador,
+        motivo,
+        status: 'aprovado', // Já entra como aprovado para sumir da lista
+        dataSolicitacao: new Date().toISOString()
+      }
+      
+      solicitacoes.push(solicitacao)
+      
+      const colaboradores = (escala.colaboradores || []).filter(c => c !== colaborador)
+      
+      await updateDoc(docRef, { 
+        solicitacoes,
+        colaboradores
+      })
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error("Erro ao registrar falta:", error)
+    return false
+  }
+}
+
 // Processar solicitação de alteração
 export async function processarSolicitacao(
   data: string, 
