@@ -520,9 +520,12 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                         <p className="text-2xl font-bold mb-2">
                           {escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').length || 0), 0)}
                         </p>
-                        <div className="text-xs text-muted-foreground space-y-1">
+                        <div className="text-xs text-muted-foreground space-y-2">
                           {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').map(s => (
-                            <div key={s.id}>{s.colaboradorOriginal} ({e.data})</div>
+                            <div key={s.id} className="bg-background/50 p-2 rounded border border-border/50">
+                              <span className="font-medium text-foreground">{s.colaboradorOriginal}</span> ({e.data})
+                              {s.motivo && <p className="mt-1 text-muted-foreground italic">"{s.motivo}"</p>}
+                            </div>
                           )))}
                         </div>
                       </div>

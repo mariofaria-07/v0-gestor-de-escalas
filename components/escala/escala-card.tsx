@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AutocompleteInput } from "@/components/ui/autocomplete"
 import type { EscalaDia, SolicitacaoAlteracao } from "@/lib/firebase-types"
 import { Bus, Users, Calendar, AlertTriangle, MoreVertical, MapPin, UserMinus, UserPlus, Check, X, Plus } from "lucide-react"
-import { atualizarLocal, adicionarSolicitacao, processarSolicitacao } from "@/lib/firebase-service"
+import { atualizarLocal, adicionarSolicitacao, processarSolicitacao, registrarFalta } from "@/lib/firebase-service"
 
 interface EscalaCardProps {
   escala: EscalaDia | null
@@ -23,6 +23,7 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
   const [actionState, setActionState] = useState<Record<string, 'local' | 'excluir' | 'substituir' | null>>({})
   const [localInput, setLocalInput] = useState("")
   const [substitutoInput, setSubstitutoInput] = useState("")
+  const [motivoInput, setMotivoInput] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -38,6 +39,7 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
     setActionState(prev => ({ ...prev, [colaborador]: prev[colaborador] === action ? null : action }))
     setLocalInput("")
     setSubstitutoInput("")
+    setMotivoInput("")
   }
 
   const handleSetLocal = async (colaborador: string, tipo: 'matriz' | 'outro') => {
@@ -50,7 +52,17 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
     setIsProcessing(false)
   }
 
-  const handleSolicitacao = async (colaborador: string, tipo: 'exclusao' | 'substituicao') => {
+  const handleExclusao = async (colaborador: string) => {
+    if (!escala || !motivoInput.trim()) return
+    
+    setIsProcessing(true)
+    const success = await registrarFalta(escala.data, colaborador, motivoInput.trim())
+    if (success && onUpdate) onUpdate()
+    toggleAction(colaborador, null)
+    setIsProcessing(false)
+  }
+
+  const handleSolicitacao = async (colaborador: string, tipo: 'substituicao') => {
     if (!escala) return
     if (tipo === 'substituicao' && !substitutoInput.trim()) return
     
@@ -59,7 +71,7 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
       id: Math.random().toString(36).substring(2, 9),
       tipo,
       colaboradorOriginal: colaborador,
-      colaboradorNovo: tipo === 'substituicao' ? substitutoInput.trim() : undefined,
+      colaboradorNovo: substitutoInput.trim(),
       status: 'pendente',
       dataSolicitacao: new Date().toISOString()
     }
@@ -235,10 +247,16 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
 
                     {action === 'excluir' && (
                       <div className="mt-4 pt-3 border-t border-border/50 flex flex-col gap-2">
-                        <p className="text-sm font-medium text-destructive">Confirmar que não vai?</p>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="destructive" onClick={() => handleSolicitacao(colaborador, 'exclusao')} disabled={isProcessing}>
-                            Confirmar
+                        <p className="text-sm font-medium text-destructive">Por que você não vai?</p>
+                        <Input 
+                          placeholder="Motivo da falta..." 
+                          value={motivoInput} 
+                          onChange={e => setMotivoInput(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                        <div className="flex gap-2 mt-1">
+                          <Button size="sm" variant="destructive" onClick={() => handleExclusao(colaborador)} disabled={!motivoInput.trim() || isProcessing}>
+                            Confirmar Falta
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => toggleAction(colaborador, null)} disabled={isProcessing}>
                             Cancelar
