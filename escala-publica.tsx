@@ -6,7 +6,7 @@ import { EscalaCard } from "./escala-card"
 import { getEscalaDia, getEscalaHoje, getTodasEscalas, getTodosColaboradoresNomes, salvarReporte } from "@/lib/firebase-service"
 import type { EscalaDia } from "@/lib/firebase-types"
 import { Spinner } from "@/components/ui/spinner"
-import { Settings, Calendar as CalendarIcon, List, Search, AlertTriangle, MessageSquare } from "lucide-react"
+import { Settings, Calendar as CalendarIcon, List, Search, AlertTriangle, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
@@ -149,6 +149,23 @@ export function EscalaPublica() {
     }
   }
 
+  const handleMudarDia = (direcao: 'anterior' | 'proximo') => {
+    if (!dataAtual) return;
+    const novaData = new Date(dataAtual);
+    novaData.setDate(novaData.getDate() + (direcao === 'proximo' ? 1 : -1));
+    setDataAtual(novaData);
+    setDataSelecionada(novaData);
+    
+    // Buscar escala da nova data
+    const dataStr = formatDate(novaData);
+    setLoading(true);
+    getEscalaDia(dataStr).then(escala => {
+      setEscalaHoje(escala);
+      setEscalaSelecionada(escala);
+      setLoading(false);
+    });
+  };
+
   if (loading || !dataAtual) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
@@ -173,7 +190,33 @@ export function EscalaPublica() {
         <Settings className="h-5 w-5" />
       </Link>
 
+      <div className="w-full max-w-md mx-auto flex flex-col items-center mb-6">
+        <img 
+          src="/logo-bamaq.png" 
+          alt="BAMAQ Grupo" 
+          className="h-14 mb-4 object-contain"
+          onError={(e) => {
+            // Fallback caso a imagem não esteja no public ainda
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      </div>
+
       <div className="w-full max-w-md mx-auto">
+        {/* Navigation Bar for Quick Day Changes */}
+        <div className="flex items-center justify-between mb-6 bg-card rounded-full shadow-sm border border-border p-1">
+          <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => handleMudarDia('anterior')}>
+            <ChevronLeft className="h-5 w-5 text-primary" />
+          </Button>
+          <div className="flex flex-col items-center justify-center">
+            <span className="text-sm font-bold text-foreground">{formatDate(dataAtual)}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{getDiaSemana(dataAtual)}</span>
+          </div>
+          <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10" onClick={() => handleMudarDia('proximo')}>
+            <ChevronRight className="h-5 w-5 text-primary" />
+          </Button>
+        </div>
+
         <Tabs defaultValue="hoje" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="hoje" className="flex items-center gap-2">

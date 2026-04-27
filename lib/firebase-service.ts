@@ -371,3 +371,25 @@ export async function marcarReporteLido(id: string): Promise<boolean> {
     return false
   }
 }
+
+// Remover solicitação (para excluir indicadores)
+export async function removerSolicitacao(data: string, solicitacaoId: string): Promise<boolean> {
+  try {
+    const docId = dateToSortKey(data)
+    const docRef = doc(db, ESCALAS_COLLECTION, docId)
+    const docSnap = await getDoc(docRef)
+    
+    if (docSnap.exists()) {
+      const escala = docSnap.data() as EscalaDia
+      let solicitacoes = escala.solicitacoes || []
+      solicitacoes = solicitacoes.filter(s => s.id !== solicitacaoId)
+      
+      await updateDoc(docRef, { solicitacoes })
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error("Erro ao remover solicitacao:", error)
+    return false
+  }
+}

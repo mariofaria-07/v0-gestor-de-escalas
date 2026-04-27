@@ -16,6 +16,7 @@ import {
   marcarComoEnviada,
   getReportes,
   marcarReporteLido,
+  removerSolicitacao,
 } from "@/lib/firebase-service"
 import { parseCSVToEscala } from "@/lib/escala-utils"
 import type { EscalaDia, Reporte } from "@/lib/firebase-types"
@@ -35,9 +36,11 @@ import {
   AlertTriangle,
   MessageSquare,
   CheckCircle2,
+  FileSpreadsheet,
 } from "lucide-react"
 import Link from "next/link"
 import { PreenchimentoMensal } from "./preenchimento-mensal"
+import * as XLSX from "xlsx"
 
 interface AdminPanelProps {
   onLogout: () => void
@@ -245,18 +248,51 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   }).sort((a, b) => parseDate(a.data).getTime() - parseDate(b.data).getTime())
 
   function handleExportar() {
-    let csvContent = "Data;Colaboradores;Feriado\n"
-    escalasFiltradas.forEach(e => {
-      const colaboradoresStr = e.colaboradores.join(", ")
-      const isFeriado = e.feriado ? "Sim" : "Nao"
-      csvContent += `${e.data};"${colaboradoresStr}";${isFeriado}\n`
-    })
+    // Resumo Geral
+    const totalTransportados = escalasFiltradas.reduce((acc, e) => acc + (e.colaboradores?.length || 0), 0);
+    const totalSubstituicoes = escalasFiltradas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'substituicao' && s.status === 'aprovado').length || 0), 0);
+    const totalFaltas = escalasFiltradas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').length || 0), 0);
+    const totalAdicoes = escalasFiltradas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'adicao' && s.status === 'aprovado').length || 0), 0);
+    
+    const resumoData = [
+      { Indicador: "Total Transportados", Valor: totalTransportados },
+      { Indicador: "Substituições (Aprovadas)", Valor: totalSubstituicoes },
+      { Indicador: "Faltas/Exclusões (Aprovadas)", Valor: totalFaltas },
+      { Indicador: "Adições Esporádicas", Valor: totalAdicoes }
+    ];
 
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement("a")
-    link.href = URL.createObjectURL(blob)
-    link.download = `relatorio_escalas_${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
+    // Detalhamento
+    const detalhamentoData = escalasFiltradas.map(e => ({
+      Data: e.data,
+      Feriado: e.feriado ? "Sim" : "Não",
+      "Total Colaboradores": e.colaboradores.length,
+      Colaboradores: e.colaboradores.join(", "),
+      "Locais Diferentes": Object.entries(e.locaisDiferentes || {}).map(([p, l]) => `${p}: ${l}`).join(" | ")
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const wsResumo = XLSX.utils.json_to_sheet(resumoData);
+    const wsDetalhe = XLSX.utils.json_to_sheet(detalhamentoData);
+
+    // Ajustar largura das colunas
+    wsResumo['!cols'] = [{ wch: 30 }, { wch: 15 }];
+    wsDetalhe['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 80 }, { wch: 50 }];
+
+    XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo RH");
+    XLSX.utils.book_append_sheet(wb, wsDetalhe, "Detalhamento");
+
+    XLSX.writeFile(wb, `relatorio_escalas_rh_${new Date().toISOString().split('T')[0]}.xlsx`);
+  }
+
+  async function handleDeleteIndicador(data: string, id: string) {
+    if (!confirm("Deseja realmente remover este indicador? O cálculo será atualizado.")) return;
+    const success = await removerSolicitacao(data, id);
+    if (success) {
+      alert("Indicador removido com sucesso.");
+      carregarEscalas();
+    } else {
+      alert("Erro ao remover o indicador.");
+    }
   }
 
   const reportesNaoLidos = reportes.filter(r => !r.lido).length
@@ -319,8 +355,9 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                     <Badge variant="secondary" className="ml-2">{escalasFiltradas.length} dias</Badge>
                   </CardTitle>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleExportar}>
-                      Exportar CSV
+                    <Button variant="outline" size="sm" onClick={handleExportar} className="text-green-700 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-900 dark:hover:bg-green-950">
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Exportar p/ RH (.xlsx)
                     </Button>
                     <Button variant="outline" size="sm" onClick={carregarEscalas} disabled={loading}>
                       <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
@@ -557,7 +594,12 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                         </p>
                         <div className="text-xs text-muted-foreground space-y-1">
                           {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'substituicao' && s.status === 'aprovado').map(s => (
-                            <div key={s.id}>{s.colaboradorOriginal} → {s.colaboradorNovo} ({e.data})</div>
+                            <div key={s.id} className="group flex justify-between items-center hover:bg-secondary p-1 rounded transition-colors">
+                              <span>{s.colaboradorOriginal} → {s.colaboradorNovo} ({e.data})</span>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteIndicador(e.data, s.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
                           )))}
                         </div>
                       </div>
@@ -568,9 +610,14 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                         </p>
                         <div className="text-xs text-muted-foreground space-y-2">
                           {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').map(s => (
-                            <div key={s.id} className="bg-background/50 p-2 rounded border border-border/50">
-                              <span className="font-medium text-foreground">{s.colaboradorOriginal}</span> ({e.data})
-                              {s.motivo && <p className="mt-1 text-muted-foreground italic">"{s.motivo}"</p>}
+                            <div key={s.id} className="group bg-background/50 p-2 rounded border border-border/50 flex justify-between items-start">
+                              <div>
+                                <span className="font-medium text-foreground">{s.colaboradorOriginal}</span> ({e.data})
+                                {s.motivo && <p className="mt-1 text-muted-foreground italic">"{s.motivo}"</p>}
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteIndicador(e.data, s.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
                             </div>
                           )))}
                         </div>
@@ -582,7 +629,12 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                         </p>
                         <div className="text-xs text-muted-foreground space-y-1">
                           {escalas.flatMap(e => (e.solicitacoes || []).filter(s => s.tipo === 'adicao' && s.status === 'aprovado').map(s => (
-                            <div key={s.id}>{s.colaboradorNovo} ({e.data})</div>
+                            <div key={s.id} className="group flex justify-between items-center hover:bg-secondary p-1 rounded transition-colors">
+                              <span>{s.colaboradorNovo} ({e.data})</span>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteIndicador(e.data, s.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
                           )))}
                         </div>
                       </div>
