@@ -18,6 +18,7 @@ export interface EscalaDia {
   data: string // formato DD/MM/YYYY
   colaboradores: string[]
   locaisDiferentes?: Record<string, string>
+  dadosColaboradores?: Record<string, { telefone?: string, supervisor?: string }>
   solicitacoes?: SolicitacaoAlteracao[]
   enviado: boolean
   enviadoEm?: string

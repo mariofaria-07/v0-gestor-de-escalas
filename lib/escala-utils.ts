@@ -48,7 +48,19 @@ export function parseCSVToEscala(text: string): EscalaData {
   const isMatrixFormat = firstLineCols[0]?.toLowerCase().includes('nome') || firstLineCols[0]?.toLowerCase().includes('colaborador') || firstLineCols.some(c => normalizeDate(c))
 
   if (isMatrixFormat && firstLineCols.length > 1) {
-    // Matrix format: Col 0 is Name, Cols 1+ are Dates
+    // Matrix format: Col 0 is Name, Cols 1 is Telefone, Col 2 is Supervisor, Cols 3+ are Dates
+    // Let's dynamically find columns
+    let telIdx = -1
+    let supIdx = -1
+    let firstDateIdx = 1
+
+    firstLineCols.forEach((col, idx) => {
+      const c = col.toLowerCase()
+      if (c.includes('telefone') || c.includes('contato')) telIdx = idx
+      else if (c.includes('supervisor') || c.includes('líder') || c.includes('lider')) supIdx = idx
+      else if (normalizeDate(c) && firstDateIdx === 1 && idx > 0) firstDateIdx = idx
+    })
+
     const dates = firstLineCols.map(c => normalizeDate(c))
     
     for (let i = 1; i < lines.length; i++) {
@@ -59,15 +71,18 @@ export function parseCSVToEscala(text: string): EscalaData {
       const colabName = cleanName(cols[0]?.trim())
       
       if (!colabName || colabName.toLowerCase().includes('nome do colaborador') || colabName.startsWith('Colaborador ')) continue
+
+      const telefone = telIdx !== -1 ? cols[telIdx]?.trim() : undefined
+      const supervisor = supIdx !== -1 ? cols[supIdx]?.trim() : undefined
       
-      for (let j = 1; j < cols.length; j++) {
+      for (let j = firstDateIdx; j < cols.length; j++) {
         const val = cols[j]?.trim().toLowerCase()
         const dateStr = dates[j]
         
         if (dateStr && (val === 'x' || val === 'sim' || val === 'v')) {
           if (!newEscala[dateStr]) newEscala[dateStr] = []
-          if (!newEscala[dateStr].includes(colabName)) {
-            newEscala[dateStr].push(colabName)
+          if (!newEscala[dateStr].find(c => c.nome === colabName)) {
+            newEscala[dateStr].push({ nome: colabName, telefone, supervisor })
           }
         }
       }
@@ -98,17 +113,17 @@ export function parseCSVToEscala(text: string): EscalaData {
           !['COLABORADORES', 'DIA', 'DATA'].includes(collaboratorName.toUpperCase())) {
         // Check for holidays or special days
         if (collaboratorName.toLowerCase().includes('feriado')) {
-          newEscala[currentDateStr] = [collaboratorName]
+          newEscala[currentDateStr] = [{ nome: collaboratorName }]
         } else if (
           !collaboratorName.toUpperCase().includes('NÃO TEVE ESCALA') &&
           !collaboratorName.toUpperCase().includes('SEM ESCALA')
         ) {
           const nameCleaned = cleanName(collaboratorName)
-          if (!newEscala[currentDateStr].includes(nameCleaned)) {
-            newEscala[currentDateStr].push(nameCleaned)
+          if (!newEscala[currentDateStr].find(c => c.nome === nameCleaned)) {
+            newEscala[currentDateStr].push({ nome: nameCleaned })
           }
         } else {
-          newEscala[currentDateStr] = ['SEM ESCALA / NÃO HOUVE']
+          newEscala[currentDateStr] = [{ nome: 'SEM ESCALA / NÃO HOUVE' }]
         }
       }
     } else if (currentDateStr) {
@@ -123,8 +138,8 @@ export function parseCSVToEscala(text: string): EscalaData {
           !collaboratorName.toLowerCase().includes('feriado')
         ) {
           const nameCleaned = cleanName(collaboratorName)
-          if (!newEscala[currentDateStr].includes(nameCleaned)) {
-            newEscala[currentDateStr].push(nameCleaned)
+          if (!newEscala[currentDateStr].find(c => c.nome === nameCleaned)) {
+            newEscala[currentDateStr].push({ nome: nameCleaned })
           }
         }
       }

@@ -26,7 +26,7 @@ export function PreenchimentoMensal({ onUpdate, allColaboradores = [] }: { onUpd
 
   const baixarPlanilhaPadrao = () => {
     const diasNoMes = new Date(parseInt(ano), parseInt(mes) + 1, 0).getDate()
-    let csvContent = "Nome do Colaborador"
+    let csvContent = "Nome do Colaborador;Telefone (Opcional);Supervisor"
     const dates: string[] = []
 
     for (let dia = 1; dia <= diasNoMes; dia++) {
@@ -41,12 +41,12 @@ export function PreenchimentoMensal({ onUpdate, allColaboradores = [] }: { onUpd
     csvContent += "\n"
 
     // Se houver colaboradores já cadastrados, usa eles. Senão, linhas em branco
-    const colaboradoresParaPlanilha = allColaboradores && allColaboradores.length > 0
-      ? allColaboradores
+    const colaboradoresParaPlanilha = allColaboradores && allColaboradores.length > 0 
+      ? allColaboradores 
       : Array.from({ length: 15 }, (_, i) => `Colaborador ${i + 1}`);
 
     for (const colab of colaboradoresParaPlanilha) {
-      csvContent += colab
+      csvContent += `${colab};;` // adds empty columns for Telefone and Supervisor
       for (let j = 0; j < dates.length; j++) {
         csvContent += ";"
       }

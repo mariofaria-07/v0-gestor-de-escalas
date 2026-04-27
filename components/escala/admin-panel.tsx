@@ -510,13 +510,28 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
 
           <TabsContent value="indicadores">
             <Card className="border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent border-b border-border">
+              <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent border-b border-border flex flex-row justify-between items-center">
                 <CardTitle className="text-lg flex items-center gap-3">
                   <div className="p-2 bg-blue-500/20 rounded-lg">
                     <Users className="h-5 w-5 text-blue-600" />
                   </div>
-                  Indicadores de Alterações
+                  Indicadores
                 </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => {
+                  let csv = "Indicador;Valor\n";
+                  csv += `Total Substituições;${escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'substituicao' && s.status === 'aprovado').length || 0), 0)}\n`;
+                  csv += `Total Faltas/Exclusões;${escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'exclusao' && s.status === 'aprovado').length || 0), 0)}\n`;
+                  csv += `Adições Esporádicas;${escalas.reduce((acc, e) => acc + (e.solicitacoes?.filter(s => s.tipo === 'adicao' && s.status === 'aprovado').length || 0), 0)}\n`;
+                  csv += `Total Transportes;${escalas.reduce((acc, e) => acc + (e.colaboradores?.length || 0), 0)}\n`;
+                  
+                  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' })
+                  const link = document.createElement("a")
+                  link.href = URL.createObjectURL(blob)
+                  link.download = `kpi_escalas_${new Date().toISOString().split('T')[0]}.csv`
+                  link.click()
+                }}>
+                  Exportar Indicadores
+                </Button>
               </CardHeader>
               <CardContent className="pt-6">
                 {loading ? (
@@ -525,7 +540,16 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      {/* Novos KPIs Gerais */}
+                      <div className="p-4 bg-primary/10 rounded-xl border border-primary/20">
+                        <h4 className="text-sm font-medium text-primary mb-1">Total Transportados</h4>
+                        <p className="text-3xl font-black mb-2 text-primary">
+                          {escalas.reduce((acc, e) => acc + (e.colaboradores?.length || 0), 0)}
+                        </p>
+                        <p className="text-xs text-primary/80">Soma de assentos ocupados</p>
+                      </div>
+
                       <div className="p-4 bg-secondary/50 rounded-xl border border-border">
                         <h4 className="text-sm font-medium text-muted-foreground mb-1">Substituições</h4>
                         <p className="text-2xl font-bold mb-2">

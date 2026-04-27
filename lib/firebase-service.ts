@@ -107,18 +107,43 @@ export async function salvarEscala(escala: EscalaDia): Promise<boolean> {
 }
 
 // Importar escalas do CSV parseado
-export async function importarEscalas(escalaData: Record<string, string[]>): Promise<number> {
+export async function importarEscalas(escalaData: import("./escala-types").EscalaData): Promise<number> {
   let count = 0
   
-  for (const [data, colaboradores] of Object.entries(escalaData)) {
-    const isFeriado = colaboradores.length === 1 && colaboradores[0].toLowerCase().includes("feriado")
+  for (const [data, dadosDia] of Object.entries(escalaData)) {
+    // Check se a escala ja existe
+    const escalaExistente = await getEscalaDia(data)
+    
+    const isFeriado = dadosDia.length === 1 && dadosDia[0].nome.toLowerCase().includes("feriado")
+    
+    let colaboradoresNomes = escalaExistente?.colaboradores || []
+    let dadosColaboradores = escalaExistente?.dadosColaboradores || {}
+    
+    if (isFeriado) {
+      colaboradoresNomes = []
+    } else {
+      for (const colab of dadosDia) {
+        if (!colaboradoresNomes.includes(colab.nome)) {
+          colaboradoresNomes.push(colab.nome)
+        }
+        if (colab.telefone || colab.supervisor) {
+          dadosColaboradores[colab.nome] = {
+            ...dadosColaboradores[colab.nome],
+            ...(colab.telefone ? { telefone: colab.telefone } : {}),
+            ...(colab.supervisor ? { supervisor: colab.supervisor } : {})
+          }
+        }
+      }
+    }
     
     const escala: EscalaDia = {
+      ...escalaExistente,
       data,
-      colaboradores: isFeriado ? [] : colaboradores,
-      enviado: false,
-      feriado: isFeriado,
-      descricaoFeriado: isFeriado ? colaboradores[0] : undefined,
+      colaboradores: colaboradoresNomes,
+      dadosColaboradores,
+      enviado: escalaExistente?.enviado || false,
+      feriado: isFeriado || (escalaExistente?.feriado || false),
+      descricaoFeriado: isFeriado ? dadosDia[0].nome : (escalaExistente?.descricaoFeriado || undefined),
     }
     
     const success = await salvarEscala(escala)

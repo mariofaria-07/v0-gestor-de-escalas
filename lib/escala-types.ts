@@ -1,5 +1,9 @@
 export interface EscalaData {
-  [date: string]: string[]
+  [date: string]: {
+    nome: string;
+    telefone?: string;
+    supervisor?: string;
+  }[]
 }
 
 export interface ParsedSchedule {

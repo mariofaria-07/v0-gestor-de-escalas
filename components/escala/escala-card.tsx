@@ -122,7 +122,16 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
       <CardHeader className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground pb-8 pt-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
         <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-black/10 rounded-full blur-2xl"></div>
-        <div className="flex flex-col items-center gap-4 relative z-10 text-center">
+        
+        {/* Logo Grupo Bamaq */}
+        <div className="absolute top-4 left-4 z-20">
+          <div className="flex items-center gap-1 font-bold text-lg tracking-tighter text-white drop-shadow-sm">
+            <span className="bg-white text-primary px-1.5 py-0.5 rounded-sm text-sm">BAMAQ</span>
+            <span className="opacity-90 text-sm font-medium">GRUPO</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-4 relative z-10 text-center mt-6">
           <div className="p-4 bg-white/20 rounded-2xl shadow-inner backdrop-blur-sm border border-white/10">
             <Bus className="h-8 w-8 text-white drop-shadow-md" />
           </div>
@@ -169,6 +178,7 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
             <ul className="space-y-0">
               {escala.colaboradores.map((colaborador, index) => {
                 const localDiferente = escala.locaisDiferentes?.[colaborador];
+                const dadosExtra = escala.dadosColaboradores?.[colaborador];
                 const solicitacaoPendente = solicitacoesPendentes.find(s => s.colaboradorOriginal === colaborador);
                 const action = actionState[colaborador];
 
@@ -185,7 +195,13 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-foreground font-medium">{colaborador}</span>
+                          <span className="text-foreground font-medium leading-tight mb-0.5">{colaborador}</span>
+                          {dadosExtra?.supervisor && (
+                            <span className="text-[10px] text-muted-foreground">Sup: {dadosExtra.supervisor}</span>
+                          )}
+                          {dadosExtra?.telefone && (
+                            <span className="text-[10px] text-muted-foreground">📞 {dadosExtra.telefone}</span>
+                          )}
                           {localDiferente && (
                             <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                               📍 {localDiferente}
