@@ -56,6 +56,8 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
   const [reportes, setReportes] = useState<Reporte[]>([])
   const [loadingReportes, setLoadingReportes] = useState(false)
   const [allColaboradores, setAllColaboradores] = useState<string[]>([])
+  const [filtroNome, setFiltroNome] = useState("")
+  const [filtroMes, setFiltroMes] = useState("")
 
   const carregarEscalas = useCallback(async () => {
     setLoading(true)
@@ -212,7 +214,7 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
     }
   }
 
-  // Filtrar para mostrar apenas escalas futuras ou de hoje
+  // Filtrar escalas
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
 
@@ -223,8 +225,39 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const escalasFiltradas = escalas.filter((e) => {
     const escalaDate = parseDate(e.data)
-    return escalaDate >= hoje
-  })
+    
+    // Default: mostrar a partir de hoje se nao houver filtro especifico
+    let passaData = true
+    if (filtroMes) {
+      const [anoFiltro, mesFiltro] = filtroMes.split('-')
+      passaData = escalaDate.getFullYear().toString() === anoFiltro && 
+                  (escalaDate.getMonth() + 1).toString().padStart(2, '0') === mesFiltro
+    } else if (!filtroNome) {
+      passaData = escalaDate >= hoje
+    }
+
+    let passaNome = true
+    if (filtroNome) {
+      passaNome = e.colaboradores.some(c => c.toLowerCase().includes(filtroNome.toLowerCase()))
+    }
+
+    return passaData && passaNome
+  }).sort((a, b) => parseDate(a.data).getTime() - parseDate(b.data).getTime())
+
+  function handleExportar() {
+    let csvContent = "Data;Colaboradores;Feriado\n"
+    escalasFiltradas.forEach(e => {
+      const colaboradoresStr = e.colaboradores.join(", ")
+      const isFeriado = e.feriado ? "Sim" : "Nao"
+      csvContent += `${e.data};"${colaboradoresStr}";${isFeriado}\n`
+    })
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.download = `relatorio_escalas_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
 
   const reportesNaoLidos = reportes.filter(r => !r.lido).length
 
@@ -276,18 +309,46 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
           <TabsContent value="escala" className="space-y-6">
             {/* Lista de Escalas */}
             <Card className="border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-border flex flex-row items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-3">
-                  <div className="p-2 bg-primary/20 rounded-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
+              <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent border-b border-border flex flex-col gap-4">
+                <div className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-3">
+                    <div className="p-2 bg-primary/20 rounded-lg">
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                    Escalas
+                    <Badge variant="secondary" className="ml-2">{escalasFiltradas.length} dias</Badge>
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleExportar}>
+                      Exportar CSV
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={carregarEscalas} disabled={loading}>
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                      Atualizar
+                    </Button>
                   </div>
-                  Escalas
-                  <Badge variant="secondary" className="ml-2">{escalasFiltradas.length} dias</Badge>
-                </CardTitle>
-                <Button variant="outline" size="sm" onClick={carregarEscalas} disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  Atualizar
-                </Button>
+                </div>
+                
+                {/* Filtros */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <Input 
+                    placeholder="Filtrar por nome do colaborador..." 
+                    value={filtroNome}
+                    onChange={e => setFiltroNome(e.target.value)}
+                    className="sm:max-w-xs"
+                  />
+                  <Input 
+                    type="month"
+                    value={filtroMes}
+                    onChange={e => setFiltroMes(e.target.value)}
+                    className="sm:max-w-[180px]"
+                  />
+                  {(filtroNome || filtroMes) && (
+                    <Button variant="ghost" onClick={() => { setFiltroNome(""); setFiltroMes(""); }} size="sm">
+                      Limpar Filtros
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="pt-6">
             {loading ? (

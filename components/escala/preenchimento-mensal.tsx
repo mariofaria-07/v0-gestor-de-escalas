@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { parseCSVToEscala } from "@/lib/escala-utils"
 import { importarEscalas } from "@/lib/firebase-service"
 
-export function PreenchimentoMensal({ onUpdate }: { onUpdate: () => void }) {
+export function PreenchimentoMensal({ onUpdate, allColaboradores = [] }: { onUpdate: () => void, allColaboradores?: string[] }) {
   const [mes, setMes] = useState(new Date().getMonth().toString())
   const [ano, setAno] = useState(new Date().getFullYear().toString())
   const [uploading, setUploading] = useState(false)
@@ -26,24 +26,38 @@ export function PreenchimentoMensal({ onUpdate }: { onUpdate: () => void }) {
 
   const baixarPlanilhaPadrao = () => {
     const diasNoMes = new Date(parseInt(ano), parseInt(mes) + 1, 0).getDate()
-    let csvContent = "Data;Dia da Semana;Nome do Colaborador\n"
+    let csvContent = "Nome do Colaborador"
+    const dates: string[] = []
 
     for (let dia = 1; dia <= diasNoMes; dia++) {
       const data = new Date(parseInt(ano), parseInt(mes), dia)
-      const dataStr = `${String(dia).padStart(2, '0')}/${String(parseInt(mes) + 1).padStart(2, '0')}/${ano}`
-      const diaSemana = data.toLocaleDateString('pt-BR', { weekday: 'long' })
-      
-      // Adiciona 5 linhas em branco por dia como sugestão
-      for (let i = 0; i < 5; i++) {
-        csvContent += `${dataStr};${diaSemana};\n`
+      // Excluir sabados (6) e domingos (0)
+      if (data.getDay() !== 0 && data.getDay() !== 6) {
+        const dataStr = `${String(dia).padStart(2, '0')}/${String(parseInt(mes) + 1).padStart(2, '0')}/${ano}`
+        csvContent += `;${dataStr}`
+        dates.push(dataStr)
       }
+    }
+    csvContent += "\n"
+
+    // Se houver colaboradores já cadastrados, usa eles. Senão, linhas em branco
+    const colaboradoresParaPlanilha = allColaboradores && allColaboradores.length > 0
+      ? allColaboradores
+      : Array.from({ length: 15 }, (_, i) => `Colaborador ${i + 1}`);
+
+    for (const colab of colaboradoresParaPlanilha) {
+      csvContent += colab
+      for (let j = 0; j < dates.length; j++) {
+        csvContent += ";"
+      }
+      csvContent += "\n"
     }
 
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement("a")
     const url = URL.createObjectURL(blob)
     link.setAttribute("href", url)
-    link.setAttribute("download", `escala_padrao_${meses[parseInt(mes)]}_${ano}.csv`)
+    link.setAttribute("download", `escala_matriz_${meses[parseInt(mes)]}_${ano}.csv`)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()

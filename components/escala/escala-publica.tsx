@@ -152,19 +152,19 @@ export function EscalaPublica() {
 
   if (loading || !dataAtual) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-slate-950 dark:via-background dark:to-indigo-950 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
-          <div className="p-4 bg-primary/10 rounded-full">
+          <div className="p-4 bg-primary/10 rounded-full animate-pulse">
             <Spinner className="h-8 w-8 text-primary" />
           </div>
-          <p className="text-muted-foreground font-medium">Carregando escala...</p>
+          <p className="text-muted-foreground font-medium animate-pulse">Carregando escala...</p>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex flex-col items-center p-4 relative pt-16">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-slate-950 dark:via-background dark:to-indigo-950 flex flex-col items-center p-4 relative pt-16">
       {/* Link discreto para admin */}
       <Link 
         href="/admin" 

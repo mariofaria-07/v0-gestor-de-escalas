@@ -117,29 +117,31 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-2xl border-0">
+    <Card className="w-full max-w-md mx-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-border/40 bg-card/90 backdrop-blur-xl overflow-hidden rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header com gradiente */}
-      <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-6 pt-6 rounded-t-xl">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/20 rounded-xl shadow-lg">
-            <Bus className="h-7 w-7" />
+      <CardHeader className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground pb-8 pt-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-black/10 rounded-full blur-2xl"></div>
+        <div className="flex flex-col items-center gap-4 relative z-10 text-center">
+          <div className="p-4 bg-white/20 rounded-2xl shadow-inner backdrop-blur-sm border border-white/10">
+            <Bus className="h-8 w-8 text-white drop-shadow-md" />
           </div>
           <div>
-            <CardTitle className="text-xl font-bold tracking-tight">Escala Rio Acima</CardTitle>
-            <p className="text-sm text-primary-foreground/80 mt-0.5">Transporte de Colaboradores</p>
+            <CardTitle className="text-2xl font-black tracking-tight drop-shadow-sm">Escala Rio Acima</CardTitle>
+            <p className="text-sm font-medium text-primary-foreground/90 mt-1 tracking-wide uppercase opacity-90">Transporte de Colaboradores</p>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-6 pb-8 px-6">
+      <CardContent className="pt-8 pb-8 px-6">
         {/* Data */}
-        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Calendar className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="font-bold text-lg text-foreground">{dataFormatada}</p>
-            <p className="text-sm text-muted-foreground capitalize">{diaSemana}</p>
+        <div className="flex items-center justify-center gap-3 mb-8 pb-6 border-b border-border/60">
+          <div className="flex flex-col items-center">
+            <p className="font-black text-3xl text-foreground tracking-tight">{dataFormatada.substring(0, 5)}</p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{diaSemana}</p>
+            </div>
           </div>
         </div>
 
