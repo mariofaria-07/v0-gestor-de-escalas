@@ -270,16 +270,35 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
       "Locais Diferentes": Object.entries(e.locaisDiferentes || {}).map(([p, l]) => `${p}: ${l}`).join(" | ")
     }));
 
+    // Histórico de Alterações (Faltas, Substituições, Adições)
+    const historicoData: any[] = [];
+    escalasFiltradas.forEach(e => {
+      (e.solicitacoes || []).forEach(s => {
+        if (s.status === 'aprovado') {
+          historicoData.push({
+            Data: e.data,
+            Tipo: s.tipo === 'exclusao' ? 'Falta/Exclusão' : s.tipo === 'substituicao' ? 'Substituição' : 'Adição Extra',
+            "Colaborador Original": s.colaboradorOriginal || "-",
+            "Colaborador Novo": s.colaboradorNovo || "-",
+            Motivo: s.motivo || "-"
+          });
+        }
+      });
+    });
+
     const wb = XLSX.utils.book_new();
     const wsResumo = XLSX.utils.json_to_sheet(resumoData);
     const wsDetalhe = XLSX.utils.json_to_sheet(detalhamentoData);
+    const wsHistorico = XLSX.utils.json_to_sheet(historicoData);
 
     // Ajustar largura das colunas
     wsResumo['!cols'] = [{ wch: 30 }, { wch: 15 }];
     wsDetalhe['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 80 }, { wch: 50 }];
+    wsHistorico['!cols'] = [{ wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }];
 
     XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo RH");
     XLSX.utils.book_append_sheet(wb, wsDetalhe, "Detalhamento");
+    XLSX.utils.book_append_sheet(wb, wsHistorico, "Histórico de Faltas e Trocas");
 
     XLSX.writeFile(wb, `relatorio_escalas_rh_${new Date().toISOString().split('T')[0]}.xlsx`);
   }

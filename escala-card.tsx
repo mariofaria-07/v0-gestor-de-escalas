@@ -156,11 +156,11 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-2xl border-0 overflow-hidden">
-      {/* Header com gradiente */}
-      <CardHeader className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground pb-6 pt-6">
+    <Card className="w-full max-w-md mx-auto shadow-xl border border-primary/10 rounded-3xl overflow-hidden bg-card/95 backdrop-blur-sm">
+      {/* Header com gradiente suave */}
+      <CardHeader className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground pb-8 pt-8">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/20 rounded-xl shadow-lg">
+          <div className="p-3 bg-white/10 backdrop-blur-md rounded-2xl shadow-inner border border-white/20">
             <Bus className="h-7 w-7" />
           </div>
           <div>
@@ -170,15 +170,15 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
         </div>
       </CardHeader>
 
-      <CardContent className="pt-6 pb-8 px-6">
+      <CardContent className="pt-6 pb-8 px-6 -mt-4 bg-background rounded-t-3xl relative z-10">
         {/* Data */}
-        <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Calendar className="h-5 w-5 text-primary" />
+        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border/50">
+          <div className="p-3 bg-primary/5 rounded-2xl border border-primary/10 text-primary shadow-sm">
+            <Calendar className="h-6 w-6" />
           </div>
           <div>
-            <p className="font-bold text-lg text-foreground">{dataFormatada}</p>
-            <p className="text-sm text-muted-foreground capitalize">{diaSemana}</p>
+            <p className="font-extrabold text-2xl tracking-tight text-foreground">{dataFormatada}</p>
+            <p className="text-sm font-medium text-muted-foreground capitalize tracking-wide">{diaSemana}</p>
           </div>
         </div>
 
@@ -212,24 +212,29 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
                 return (
                   <li
                     key={index}
-                    className="flex flex-col p-4 bg-gradient-to-r from-secondary/80 to-secondary/40 rounded-xl border border-border/50 shadow-sm mb-3"
+                    className="flex flex-col p-4 bg-card rounded-2xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 mb-4"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-md shrink-0">
-                          <span className="text-sm font-bold text-primary-foreground">
+                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center border border-primary/10 shrink-0">
+                          <span className="text-lg font-bold text-primary">
                             {colaborador.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-foreground font-medium">{colaborador}</span>
+                          <span className="text-foreground font-bold tracking-tight">{colaborador}</span>
                           {localDiferente && (
-                            <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                              📍 {localDiferente}
-                            </span>
+                            <a 
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(localDiferente)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary mt-1 flex items-center gap-1 hover:underline font-medium bg-primary/5 w-fit px-2 py-0.5 rounded-full"
+                            >
+                              <MapPin className="h-3 w-3" /> {localDiferente}
+                            </a>
                           )}
                           {solicitacaoPendente && (
-                            <span className="text-xs text-amber-600 mt-0.5 font-medium">
+                            <span className="text-xs text-amber-600 mt-1.5 font-medium bg-amber-50 px-2 py-0.5 rounded-full w-fit">
                               ⏳ {solicitacaoPendente.tipo === 'exclusao' ? 'Exclusão pendente' : `Substituição por ${solicitacaoPendente.colaboradorNovo} pendente`}
                             </span>
                           )}
