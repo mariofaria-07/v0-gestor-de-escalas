@@ -6,7 +6,7 @@ import { EscalaCard } from "./escala-card"
 import { getEscalaDia, getEscalaHoje, getTodasEscalas, getTodosColaboradoresNomes, salvarReporte } from "@/lib/firebase-service"
 import type { EscalaDia } from "@/lib/firebase-types"
 import { Spinner } from "@/components/ui/spinner"
-import { Settings, Calendar as CalendarIcon, List, Search, AlertTriangle, MessageSquare } from "lucide-react"
+import { Settings, Calendar as CalendarIcon, List, Search, AlertTriangle, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
@@ -60,10 +60,22 @@ export function EscalaPublica() {
     }
     const hojeEscala = await getEscalaHoje()
     setEscalaHoje(hojeEscala)
-    
-    // Refresh colaboradores names list
     const nomes = await getTodosColaboradoresNomes()
     setAllColaboradores(nomes)
+  }
+
+  const handleMudarDia = (direcao: 'anterior' | 'proximo') => {
+    if (!dataAtual) return
+    const novaData = new Date(dataAtual)
+    novaData.setDate(novaData.getDate() + (direcao === 'proximo' ? 1 : -1))
+    setDataAtual(novaData)
+    setDataSelecionada(novaData)
+    setLoading(true)
+    getEscalaDia(formatDate(novaData)).then(escala => {
+      setEscalaHoje(escala)
+      setEscalaSelecionada(escala)
+      setLoading(false)
+    })
   }
 
   useEffect(() => {
@@ -152,7 +164,7 @@ export function EscalaPublica() {
 
   if (loading || !dataAtual) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-slate-950 dark:via-background dark:to-indigo-950 flex items-center justify-center p-4">
+      <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
           <div className="p-4 bg-primary/10 rounded-full animate-pulse">
             <Spinner className="h-8 w-8 text-primary" />
@@ -164,7 +176,7 @@ export function EscalaPublica() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-indigo-50 dark:from-slate-950 dark:via-background dark:to-indigo-950 flex flex-col items-center p-4 relative pt-16">
+    <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex flex-col items-center p-4 relative pt-16">
       {/* Link discreto para admin */}
       <Link 
         href="/admin" 
@@ -175,6 +187,20 @@ export function EscalaPublica() {
       </Link>
 
       <div className="w-full max-w-md mx-auto">
+        {/* Barra de navegação de dias */}
+        <div className="flex items-center justify-between mb-6 bg-card/80 backdrop-blur-sm rounded-full shadow-sm border border-border/50 px-3 py-2">
+          <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-primary/10" onClick={() => handleMudarDia('anterior')}>
+            <ChevronLeft className="h-5 w-5 text-primary" />
+          </Button>
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-bold text-foreground">{formatDate(dataAtual)}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{getDiaSemana(dataAtual)}</span>
+          </div>
+          <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-primary/10" onClick={() => handleMudarDia('proximo')}>
+            <ChevronRight className="h-5 w-5 text-primary" />
+          </Button>
+        </div>
+
         <Tabs defaultValue="hoje" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="hoje" className="flex items-center gap-2">

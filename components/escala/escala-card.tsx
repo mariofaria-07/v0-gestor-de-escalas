@@ -203,12 +203,17 @@ export function EscalaCard({ escala, dataFormatada, diaSemana, onUpdate, allCola
                             <span className="text-[10px] text-muted-foreground">📞 {dadosExtra.telefone}</span>
                           )}
                           {localDiferente && (
-                            <span className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                              📍 {localDiferente}
-                            </span>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(localDiferente)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary mt-1 flex items-center gap-1 hover:underline font-semibold bg-primary/8 w-fit px-2 py-0.5 rounded-full border border-primary/20"
+                            >
+                              <MapPin className="h-3 w-3 shrink-0" /> {localDiferente}
+                            </a>
                           )}
                           {solicitacaoPendente && (
-                            <span className="text-xs text-amber-600 mt-0.5 font-medium">
+                            <span className="text-xs text-amber-700 mt-1 font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full w-fit">
                               ⏳ {solicitacaoPendente.tipo === 'exclusao' ? 'Exclusão pendente' : `Substituição por ${solicitacaoPendente.colaboradorNovo} pendente`}
                             </span>
                           )}
